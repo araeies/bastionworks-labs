@@ -1,0 +1,20 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests", "docker:pinDigests"],
+  "minimumReleaseAge": "3 days",
+  "prConcurrentLimit": 5,
+  "vulnerabilityAlerts": { "enabled": true, "minimumReleaseAge": null },
+  "packageRules": [
+    { "matchManagers": ["github-actions"], "groupName": "github actions" },
+    { "matchDatasources": ["docker"], "matchFileNames": [".github/workflows/**"], "groupName": "ci scanner images" }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Digest-pinned scanner images declared as *_IMAGE env vars in workflows",
+      "managerFilePatterns": ["/^\.github/workflows/.+\.ya?ml$/"],
+      "matchStrings": ["[A-Z_]+_IMAGE: (?<depName>[^:\s]+):(?<currentValue>[^@\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"],
+      "datasourceTemplate": "docker"
+    }
+  ]
+}
