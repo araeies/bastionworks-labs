@@ -1,0 +1,104 @@
+name: release
+
+# Signed, attested bw releases (brief §5, ADR-0016). Runs only for v* tags, only in the `release`
+# environment (owner approval required; tag-only deployment policy). Keyless: Sigstore via GitHub
+# artifact attestations, so no signing key exists anywhere.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build, attest, publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: write # create the GitHub release
+      id-token: write # Sigstore keyless signing for attestations
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests -t . -v
+
+      - name: Build reproducible tarball and SHA256SUMS
+        env:
+          TAG: ${{ github.ref_name }}
+        run: python scripts/build_release.py --version "${TAG#v}" --out dist
+
+      - name: CycloneDX SBOM
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          python - "$version" > dist/bw.cdx.json <<'PY'
+          import json, sys
+          v = sys.argv[1]
+          print(json.dumps({
+              "bomFormat": "CycloneDX", "specVersion": "1.5", "version": 1,
+              "metadata": {"component": {"type": "application", "name": "bw", "version": v,
+                           "licenses": [{"license": {"name": "PolyForm-Shield-1.0.0"}}]}},
+              "components": [],
+          }, indent=2))
+          PY
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/bw-*.tar.gz
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: dist/bw-*.tar.gz
+          sbom-path: dist/bw.cdx.json
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          prerelease=""
+          case "$TAG" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$TAG" dist/* --verify-tag $prerelease \
+            --title "bw $TAG" \
+            --notes "Verify before use: \`sha256sum -c SHA256SUMS\` and \`gh attestation verify bw-${TAG#v}.tar.gz --repo $GITHUB_REPOSITORY\`."
+
+  verify:
+    name: verify published release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - name: Download assets and verify checksum and provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir assets
+          cd assets
+          sha256sum -c SHA256SUMS
+          gh attestation verify "bw-${TAG#v}.tar.gz" --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
+          gh attestation verify "bw-${TAG#v}.tar.gz" --repo "$GITHUB_REPOSITORY" \
+            --predicate-type https://cyclonedx.org/bom

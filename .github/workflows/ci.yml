@@ -1,0 +1,135 @@
+name: ci
+
+# Blocking gates for the public labs repo (brief §7.2, ADR-0022). CodeQL and dependency review are
+# free on public repositories. Required check: "ci gate".
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITLEAKS_IMAGE: zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+  SEMGREP_IMAGE: semgrep/semgrep:1.180.0@sha256:529ee8a277ec8adc5b534d7c74eea0a47e9de21d62852b6ba7ac6ba9566845c3
+  ACTIONLINT_IMAGE: rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+  ZIZMOR_IMAGE: ghcr.io/zizmorcore/zizmor:1.30.1@sha256:a2eb396d886c053073405c7a980f2139ba2248ec172243cfa3841e57196e8101
+
+jobs:
+  unit:
+    name: unit tests (python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.13"] # 3.9 = Azure Cloud Shell floor (ADR-0015)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m unittest discover -s tests -t . -v
+
+  secrets:
+    name: secrets (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: docker run --rm -v "$GITHUB_WORKSPACE:/repo:ro" "$GITLEAKS_IMAGE" git /repo --redact --no-banner --verbose --exit-code 1
+
+  sast:
+    name: sast (semgrep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: >
+          docker run --rm -v "$GITHUB_WORKSPACE:/src:ro" -w /src "$SEMGREP_IMAGE"
+          semgrep scan --metrics=off --error --severity ERROR
+          --config p/default --config p/python --config p/github-actions
+
+  codeql:
+    name: codeql (python, actions)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write # upload results to code scanning (free on public repos)
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, actions]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+
+  dependencies:
+    name: dependency review
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+
+  workflows:
+    name: workflow lint (actionlint, zizmor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: docker run --rm -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo "$ACTIONLINT_IMAGE" -color
+      - run: docker run --rm -v "$GITHUB_WORKSPACE:/repo:ro" "$ZIZMOR_IMAGE" --offline --min-severity medium /repo/.github/workflows
+
+  gate:
+    name: ci gate # make THIS the required status check
+    needs: [unit, secrets, sast, codeql, dependencies, workflows]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless every gate succeeded (dependency review may only be skipped outside PRs)
+        env:
+          UNIT: ${{ needs.unit.result }}
+          SECRETS: ${{ needs.secrets.result }}
+          SAST: ${{ needs.sast.result }}
+          CODEQL: ${{ needs.codeql.result }}
+          WORKFLOWS: ${{ needs.workflows.result }}
+          DEPS: ${{ needs.dependencies.result }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          echo "unit=$UNIT secrets=$SECRETS sast=$SAST codeql=$CODEQL workflows=$WORKFLOWS deps=$DEPS"
+          for r in "$UNIT" "$SECRETS" "$SAST" "$CODEQL" "$WORKFLOWS"; do
+            [ "$r" = "success" ] || exit 1
+          done
+          if [ "$EVENT" = "pull_request" ]; then [ "$DEPS" = "success" ] || exit 1; fi
