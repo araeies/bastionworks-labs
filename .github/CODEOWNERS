@@ -1,0 +1,2 @@
+# Owner reviews everything; required-review enforcement is raised when a second reviewer joins (ADR-0020).
+* @araeies
