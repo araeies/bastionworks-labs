@@ -1,6 +1,7 @@
 # PSRule for Azure on every kit (brief §7.2). Kits are DELIBERATELY insecure where the lab requires it;
 # each such rule is excluded per kit below with the lab and reason, never globally.
 configuration:
+  AZURE_BICEP_FILE_EXPANSION: true # required for .bicepparam expansion; without it PSRule silently processes 0 rules
   AZURE_BICEP_PARAMS_FILE_EXPANSION: true
   AZURE_PARAMETER_FILE_EXPANSION: true
 
@@ -14,10 +15,23 @@ include:
 input:
   pathIgnore:
     - "**"
-    - "!labs/*/infra/*.bicepparam"
+    - "!labs/**/*.bicepparam"
 
 output:
   culture: [en-GB]
 
 rule:
   exclude: []
+
+# Per-kit suppressions: scoped to the kit's CI sample target name, never global. Each states why.
+suppression:
+  # storage-sas-leak (lab 1) deploys a DELIBERATELY vulnerable account; these misconfigurations are the
+  # scenario the learner must find and fix (owner decision: option A).
+  Azure.Storage.BlobPublicAccess: [bwsasexample01]   # scenario: anonymous blob access
+  Azure.Storage.BlobAccessType: [bwsasexample01]     # scenario: public build-artifacts container
+  Azure.Storage.LocalAuth: [bwsasexample01]          # scenario: shared-key access, so the leaked account-key SAS works
+  Azure.Storage.Firewall: [bwsasexample01]           # probed from the internet (owner decision 3, option b)
+  # Short-lived lab account, synthetic data, near-zero learner cost:
+  Azure.Storage.UseReplication: [bwsasexample01]     # LRS is enough for a 45-minute lab
+  Azure.Storage.SoftDelete: [bwsasexample01]         # soft delete would keep planted data after cleanup
+  Azure.Storage.ContainerSoftDelete: [bwsasexample01]

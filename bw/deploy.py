@@ -8,9 +8,10 @@ import json
 import os
 import shlex
 import subprocess
+import sys
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Callable, Dict, TextIO
+from typing import Callable, Dict, List, TextIO
 
 from bw.az import Az
 from bw.conventions import EXPIRES_TAG, KIT_TAG, LAB_TAG, PLAYGROUND_TAG, SEED_TAG, resource_group_name
@@ -31,10 +32,20 @@ def derived_names(manifest, seed: str) -> Dict[str, str]:
     return names
 
 
+def _seed_command(script: Path) -> List[str]:
+    """Python seed scripts run with this interpreter and can import labspec (same derivation as the Verifier)."""
+    return [sys.executable, str(script)] if script.suffix == ".py" else ["bash", str(script)]
+
+
 def _run_seed_script(script: Path, env_extra: Dict[str, str], out: TextIO) -> None:
-    print("$ " + " ".join(f"{k}={shlex.quote(v)}" for k, v in sorted(env_extra.items())) + f" bash {shlex.quote(str(script))}",
-          file=out, flush=True)
-    completed = subprocess.run(["bash", str(script)], env={**os.environ, **env_extra}, check=False)
+    command = _seed_command(script)
+    env = {**os.environ, **env_extra}
+    if script.suffix == ".py":
+        package_root = str(Path(__file__).resolve().parent.parent)  # folder holding bw/ and labspec/
+        env["PYTHONPATH"] = os.pathsep.join(p for p in (package_root, os.environ.get("PYTHONPATH", "")) if p)
+    print("$ " + " ".join(f"{k}={shlex.quote(v)}" for k, v in sorted(env_extra.items())) + " "
+          + " ".join(shlex.quote(c) for c in command), file=out, flush=True)
+    completed = subprocess.run(command, env=env, check=False)
     if completed.returncode != 0:
         raise DeployError(f"seed script exited with status {completed.returncode}")
 
@@ -94,7 +105,7 @@ def run_deploy(az: Az, lab_id: str, seed: str, kit_dir: Path, region: str, out: 
             "--template-file", str(template), "--parameters", *params], mutating=True)
 
     if "seed" in kit:
-        env = {"BW_LAB": manifest.id, "BW_SEED": seed, "BW_RESOURCE_GROUP": group,
+        env = {"BW_LAB": manifest.id, "BW_SEED": seed, "BW_RESOURCE_GROUP": group, "BW_EXPIRES": expires,
                **{f"BW_NAME_{k.upper()}": v for k, v in names.items()}}
         if az.dry_run:
             print(f"(dry run: seed script {kit['seed']} not executed)", file=out)
