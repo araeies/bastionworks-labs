@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "lab-0",
+  "version": "0.1.0",
+  "title": "Secure your playground",
+  "track": "playground",
+  "level": "beginner",
+  "estimatedMinutes": 40,
+  "learnerCostEstimateUsd": 0,
+  "mitre": [
+    { "id": "T1496", "name": "Resource Hijacking" },
+    { "id": "T1578", "name": "Modify Cloud Compute Infrastructure" }
+  ],
+  "mcsb": ["GS-2", "AM-2", "PA-1"],
+  "scenario": "scenario.md",
+  "kit": {
+    "scope": "subscription",
+    "template": "infra/main.bicep",
+    "selfChecks": "checks/local.py",
+    "cleanup": "cleanup.sh",
+    "names": {
+      "playgroundId": { "prefix": "pg", "length": 6 }
+    },
+    "outOfGroup": [
+      { "type": "policyAssignment", "description": "bw-allowed-locations, bw-allowed-vm-sizes, bw-denied-resource-types at subscription scope" },
+      { "type": "budget", "description": "bw-lab-0-budget-<playgroundId>, monthly, alerts at 25/50/90% actual and 100% forecast" },
+      { "type": "subscriptionTag", "description": "bastionworks:playground=true, merged into existing subscription tags" }
+    ]
+  },
+  "hints": ["hints/1.md", "hints/2.md", "hints/3.md"],
+  "checkpoints": [
+    {
+      "id": "guardrails-as-code",
+      "title": "Your own repo declares the playground guardrails as code",
+      "method": "artefactScan",
+      "submit": "repoAtCommit",
+      "rules": ["custom:lab0-allowed-locations", "custom:lab0-denied-types", "custom:lab0-budget"],
+      "positiveControl": "The budget in your IaC must be named with your seed-derived playground ID, so a copied template from someone else fails."
+    },
+    {
+      "id": "why-it-matters",
+      "title": "Explain the guardrails' limits",
+      "method": "knowledgeCheck",
+      "submit": "answers",
+      "questions": "private:lab-0/questions.json"
+    }
+  ],
+  "debrief": "private:debriefs/lab-0.md"
+}

@@ -8,7 +8,7 @@ import json
 from typing import Any, Callable, Dict, List, NamedTuple, TextIO
 
 from bw.az import Az
-from bw.conventions import LAB_TAG, owner_marker
+from bw.conventions import LAB_TAG, PLAYGROUND_LAB, PLAYGROUND_TAG, owner_marker
 
 
 class CleanupPlan(NamedTuple):
@@ -16,10 +16,13 @@ class CleanupPlan(NamedTuple):
     role_assignments: List[Dict[str, Any]]
     policy_assignments: List[Dict[str, Any]]
     entra_apps: List[Dict[str, Any]]
+    budgets: List[str]
+    remove_playground_tag: bool
 
     @property
     def empty(self) -> bool:
-        return not (self.resource_groups or self.role_assignments or self.policy_assignments or self.entra_apps)
+        return not (self.resource_groups or self.role_assignments or self.policy_assignments or self.entra_apps
+                    or self.budgets or self.remove_playground_tag)
 
 
 def _tag_filter(lab_id: str) -> str:
@@ -42,6 +45,19 @@ def _owned_entra_apps(az: Az, lab_id: str) -> List[Dict[str, Any]]:
     return az.run(["ad", "app", "list", "--filter", f"tags/any(t:t eq '{tag}')"]) or []
 
 
+def _owned_budgets(az: Az, lab_id: str) -> List[str]:
+    prefix = f"bw-{lab_id}-budget-"
+    return sorted(b["name"] for b in az.run(["consumption", "budget", "list"]) or [] if str(b.get("name", "")).startswith(prefix))
+
+
+def _playground_tagged(az: Az, lab_id: str) -> bool:
+    if lab_id != PLAYGROUND_LAB:
+        return False
+    sub_id = az.run(["account", "show"])["id"]
+    tags = (az.run(["tag", "list", "--resource-id", f"/subscriptions/{sub_id}"]) or {}).get("properties", {}).get("tags") or {}
+    return PLAYGROUND_TAG in tags
+
+
 def _deleted_vaults(az: Az, lab_id: str) -> List[Dict[str, Any]]:
     vaults = az.run(["keyvault", "list-deleted", "--resource-type", "vault"]) or []
     return [v for v in vaults if ((v.get("properties") or {}).get("tags") or {}).get(LAB_TAG) == lab_id]
@@ -54,6 +70,8 @@ def plan_cleanup(az: Az, lab_id: str) -> CleanupPlan:
         role_assignments=_owned_role_assignments(az, lab_id),
         policy_assignments=_owned_policy_assignments(az, lab_id),
         entra_apps=_owned_entra_apps(az, lab_id),
+        budgets=_owned_budgets(az, lab_id),
+        remove_playground_tag=_playground_tagged(az, lab_id),
     )
 
 
@@ -66,6 +84,9 @@ def leftovers(az: Az, lab_id: str) -> List[str]:
     found += [f"policy assignment {a['id']}" for a in _owned_policy_assignments(az, lab_id)]
     found += [f"Entra app {a.get('displayName')} ({a.get('appId')})" for a in _owned_entra_apps(az, lab_id)]
     found += [f"soft-deleted Key Vault {v['name']}" for v in _deleted_vaults(az, lab_id)]
+    found += [f"budget {b}" for b in _owned_budgets(az, lab_id)]
+    if _playground_tagged(az, lab_id):
+        found.append(f"subscription tag {PLAYGROUND_TAG}")
     return found
 
 
@@ -84,6 +105,10 @@ def run_cleanup(az: Az, lab_id: str, out: TextIO, confirm: Callable[[str], str],
             print(f"  - policy assignment {item.get('name')} at {item.get('scope')}", file=out)
         for item in plan.entra_apps:
             print(f"  - Entra app registration {item.get('displayName')} ({item.get('appId')})", file=out)
+        for name in plan.budgets:
+            print(f"  - budget {name}", file=out)
+        if plan.remove_playground_tag:
+            print(f"  - the {PLAYGROUND_TAG} subscription tag (bw will refuse to deploy labs here afterwards)", file=out)
         for vault in vaults:
             print(f"  - soft-deleted Key Vault {vault['name']} (purged)", file=out)
         if not assume_yes and az.dry_run is False:
@@ -101,6 +126,12 @@ def run_cleanup(az: Az, lab_id: str, out: TextIO, confirm: Callable[[str], str],
         az.run(["ad", "app", "delete", "--id", item["appId"]], mutating=True)
     for name in plan.resource_groups:
         az.run(["group", "delete", "--name", name, "--yes"], mutating=True)
+    for name in plan.budgets:
+        az.run(["consumption", "budget", "delete", "--budget-name", name], mutating=True)
+    if plan.remove_playground_tag:
+        sub_id = az.run(["account", "show"])["id"]
+        az.run(["tag", "update", "--resource-id", f"/subscriptions/{sub_id}", "--operation", "Delete",
+                "--tags", f"{PLAYGROUND_TAG}=true"], mutating=True)
     for vault in vaults:
         az.run(["keyvault", "purge", "--name", vault["name"], "--location", vault["properties"]["location"]], mutating=True)
 

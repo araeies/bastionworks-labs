@@ -92,6 +92,7 @@ def lab_world(overrides=None):
             {"name": "kv-mine", "properties": {"location": "uksouth", "tags": {}}},
         ],
         ("resource", "list"): [],
+        ("consumption", "budget", "list"): [{"name": "bw-storage-sas-leak-budget-ab12cd"}, {"name": "my-own-budget"}],
     }
     responses.update(overrides or {})
     return FakeAz(responses)
@@ -111,6 +112,9 @@ class CleanupTest(unittest.TestCase):
         self.assertIn("group delete --name rg-bw-storage-sas-leak-k7q2mx4p --yes", flat)
         self.assertIn("keyvault purge --name kv-old --location uksouth", flat)
         self.assertFalse(any("kv-mine" in m for m in flat))
+        self.assertIn("consumption budget delete --budget-name bw-storage-sas-leak-budget-ab12cd", flat)
+        self.assertFalse(any("my-own-budget" in m for m in flat))
+        self.assertFalse(any(m.startswith("tag update") for m in flat))  # only lab-0 owns the playground tag
         # Subscription-scoped role assignments go before the resource group.
         self.assertLess(flat.index(next(m for m in flat if m.startswith("role assignment delete"))),
                         flat.index(next(m for m in flat if m.startswith("group delete"))))
@@ -130,11 +134,26 @@ class CleanupTest(unittest.TestCase):
 
     def test_clean_subscription_reports_clean(self):
         az = lab_world({("group", "list", "--tag"): [], ("role", "assignment", "list"): [],
-                          ("policy", "assignment", "list"): [], ("keyvault", "list-deleted"): []})
+                          ("policy", "assignment", "list"): [], ("keyvault", "list-deleted"): [],
+                          ("consumption", "budget", "list"): []})
         out = io.StringIO()
         self.assertEqual(run_cleanup(az, "storage-sas-leak", out, confirm=lambda _: "x"), 0)
         self.assertIn("Clean: nothing tagged", out.getvalue())
         self.assertEqual(az.mutations, [])
+
+    def test_lab0_cleanup_removes_playground_tag_and_budget(self):
+        az = lab_world({
+            ("group", "list", "--tag"): [], ("role", "assignment", "list"): [], ("keyvault", "list-deleted"): [],
+            ("policy", "assignment", "list"): [{"id": "p", "name": "bw-allowed-locations", "scope": "/subscriptions/x",
+                                                "metadata": {"bastionworksLab": "lab-0"}}],
+            ("consumption", "budget", "list"): [{"name": "bw-lab-0-budget-pg1234"}],
+            ("tag", "list"): {"properties": {"tags": {"bastionworks:playground": "true"}}},
+        })
+        run_cleanup(az, "lab-0", io.StringIO(), confirm=lambda _: "lab-0")
+        flat = [" ".join(m) for m in az.mutations]
+        self.assertIn("policy assignment delete --name bw-allowed-locations --scope /subscriptions/x", flat)
+        self.assertIn("consumption budget delete --budget-name bw-lab-0-budget-pg1234", flat)
+        self.assertTrue(any(m.startswith("tag update") and "--operation Delete" in m for m in flat))
 
     def test_dry_run_executes_no_mutations(self):
         az = lab_world()
