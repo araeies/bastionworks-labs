@@ -99,6 +99,8 @@ def main(argv: List[str]) -> int:
     (args.out / name).write_bytes(data)
     digest = hashlib.sha256(data).hexdigest()
     (args.out / "SHA256SUMS").write_text(f"{digest}  {name}\n", encoding="utf-8")
+    sbom = json.dumps(build_sbom(args.version), indent=2, sort_keys=True) + "\n"
+    (args.out / "bw.cdx.json").write_text(sbom, encoding="utf-8")
     print(f"{digest}  {name}")
     return 0
 

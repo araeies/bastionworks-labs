@@ -1,4 +1,5 @@
 import io
+import json
 import tarfile
 import tempfile
 import unittest
@@ -68,6 +69,11 @@ class BuildReleaseTest(unittest.TestCase):
                 self.assertEqual(build_release.main(["--version", __version__, "--out", tmp]), 0)
             sums = (Path(tmp) / "SHA256SUMS").read_text(encoding="utf-8")
             self.assertRegex(sums, rf"^[0-9a-f]{{64}}  bw-{__version__}\.tar\.gz\n$")
+            # The release workflow attests dist/bw.cdx.json; it must be written and parse as the CycloneDX
+            # document actions/attest accepts (bomFormat + serialNumber + specVersion).
+            sbom = json.loads((Path(tmp) / "bw.cdx.json").read_text(encoding="utf-8"))
+            for field in ("bomFormat", "serialNumber", "specVersion"):
+                self.assertIn(field, sbom)
 
 
 if __name__ == "__main__":
