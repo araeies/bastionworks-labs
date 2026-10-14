@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "id": "storage-sas-leak",
+  "version": "0.1.0",
+  "title": "The SAS token in the build log",
+  "track": "data-protection",
+  "level": "intermediate",
+  "estimatedMinutes": 45,
+  "learnerCostEstimateUsd": 0.1,
+  "mitre": [
+    { "id": "T1530", "name": "Data from Cloud Storage" },
+    { "id": "T1552.001", "name": "Unsecured Credentials: Credentials In Files" }
+  ],
+  "mcsb": ["DP-3", "DP-7", "IM-8", "NS-2"],
+  "scenario": "scenario.md",
+  "kit": {
+    "scope": "resourceGroup",
+    "template": "infra/main.bicep",
+    "seed": "seed/plant.py",
+    "selfChecks": "checks/local.py",
+    "cleanup": "cleanup.sh",
+    "names": {
+      "storageAccount": { "prefix": "bwsas", "length": 10 }
+    },
+    "outOfGroup": []
+  },
+  "hints": ["hints/1.md", "hints/2.md", "hints/3.md", "hints/4.md"],
+  "checkpoints": [
+    {
+      "id": "leak-dead",
+      "title": "The leaked token no longer works",
+      "method": "externalProbe",
+      "submit": "leakedSasUrl",
+      "hostSuffixes": [".blob.core.windows.net"],
+      "hostName": "storageAccount",
+      "expect": { "status": [403], "errorCode": ["AuthenticationFailed", "KeyBasedAuthenticationNotPermitted"] },
+      "redactAfterUse": true,
+      "positiveControl": "account-alive must also pass, so deleting the account cannot satisfy this check."
+    },
+    {
+      "id": "account-alive",
+      "title": "The original account still serves data, securely",
+      "method": "externalProbe",
+      "submit": "issuedSasUrl",
+      "hostSuffixes": [".blob.core.windows.net"],
+      "hostName": "storageAccount",
+      "expect": { "status": [200], "bodyContainsDerived": "healthToken" },
+      "redactAfterUse": true,
+      "maxValidityMinutes": 60,
+      "positiveControl": "A read-only SAS you issue (60 minutes or less) on status/healthcheck.txt must return the seed-derived health token planted at deploy."
+    },
+    {
+      "id": "no-anonymous",
+      "title": "The build log is no longer publicly readable",
+      "method": "externalProbe",
+      "submit": "url",
+      "hostSuffixes": [".blob.core.windows.net"],
+      "hostName": "storageAccount",
+      "expect": { "status": [404, 409], "errorCode": ["ResourceNotFound", "PublicAccessNotPermitted"] },
+      "positiveControl": "account-alive must also pass, so the account must still exist."
+    },
+    {
+      "id": "prevent",
+      "title": "Your IaC prevents it happening again",
+      "method": "artefactScan",
+      "submit": "repoAtCommit",
+      "rules": ["psrule:Azure.Storage.BlobPublicAccess", "custom:sas-leak-no-shared-key", "custom:sas-leak-seeded-account"],
+      "positiveControl": "The storage account in your IaC must use your seed-derived account name and set allowBlobPublicAccess and allowSharedKeyAccess to false."
+    },
+    {
+      "id": "report",
+      "title": "Write the incident note for the CISO",
+      "method": "rubricReview",
+      "submit": "repoAtCommit",
+      "rubric": "rubrics/incident-note.md"
+    }
+  ],
+  "debrief": "private:debriefs/storage-sas-leak.md"
+}

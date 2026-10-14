@@ -142,3 +142,21 @@ class HintTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SeedCommandTest(unittest.TestCase):
+    def test_python_seed_runs_with_this_interpreter_and_shell_seed_with_bash(self):
+        import sys
+
+        from bw.deploy import _seed_command
+        self.assertEqual(_seed_command(Path("seed/plant.py")), [sys.executable, "seed/plant.py".replace("/", __import__("os").sep)])
+        self.assertEqual(_seed_command(Path("seed/plant.sh"))[0], "bash")
+
+
+class StorageSasLeakKitTest(unittest.TestCase):
+    def test_lab_one_package_lints_clean(self):
+        manifest = load_manifest(Path(__file__).resolve().parent.parent / "labs" / "storage-sas-leak")
+        methods = {cp["id"]: cp["method"] for cp in manifest.checkpoints}
+        self.assertEqual(methods["leak-dead"], "externalProbe")
+        self.assertEqual(methods["account-alive"], "externalProbe")
+        self.assertEqual(methods["report"], "rubricReview")
