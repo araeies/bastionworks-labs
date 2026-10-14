@@ -69,12 +69,14 @@ var deniedTypesPolicy = '6c112d4e-5bc7-47ae-a041-ea2d9dccd749' // Not allowed re
 var metadata = {
   bastionworksLab: labId
   bastionworksSeed: seed
+  assignedBy: 'Bastionworks Lab 0 (bw deploy)'
 }
 
 resource allowedLocations_ 'Microsoft.Authorization/policyAssignments@2024-04-01' = {
   name: 'bw-allowed-locations'
   properties: {
     displayName: 'Bastionworks: allowed locations (${names.playgroundId})'
+    description: 'Lab 0 guardrail: resources may only be created in the regions Bastionworks labs use.'
     policyDefinitionId: tenantResourceId('Microsoft.Authorization/policyDefinitions', allowedLocationsPolicy)
     parameters: {
       listOfAllowedLocations: { value: allowedLocations }
@@ -87,6 +89,7 @@ resource allowedVmSkus_ 'Microsoft.Authorization/policyAssignments@2024-04-01' =
   name: 'bw-allowed-vm-sizes'
   properties: {
     displayName: 'Bastionworks: allowed VM sizes (${names.playgroundId})'
+    description: 'Lab 0 guardrail: only small, low-cost VM sizes may be created in this playground subscription.'
     policyDefinitionId: tenantResourceId('Microsoft.Authorization/policyDefinitions', allowedVmSkusPolicy)
     parameters: {
       listOfAllowedSKUs: { value: allowedVmSkus }
@@ -99,6 +102,7 @@ resource deniedTypes_ 'Microsoft.Authorization/policyAssignments@2024-04-01' = {
   name: 'bw-denied-resource-types'
   properties: {
     displayName: 'Bastionworks: denied expensive resource types (${names.playgroundId})'
+    description: 'Lab 0 guardrail: blocks resource types that are expensive by default and never needed in Bastionworks labs.'
     policyDefinitionId: tenantResourceId('Microsoft.Authorization/policyDefinitions', deniedTypesPolicy)
     parameters: {
       listOfResourceTypesNotAllowed: { value: deniedResourceTypes }
