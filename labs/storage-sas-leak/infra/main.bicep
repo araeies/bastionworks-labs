@@ -24,16 +24,18 @@ var tags = {
   'bastionworks:expires': expires
 }
 
-// checkov:skip=CKV_AZURE_190:Deliberately vulnerable lab resource: anonymous blob access is the scenario.
-// checkov:skip=CKV_AZURE_59:Lab endpoints are probed from the internet (owner decision 3, option b); synthetic data only.
-// checkov:skip=CKV_AZURE_206:Single short-lived lab account; LRS keeps learner cost near zero.
-// checkov:skip=CKV_AZURE_33:Queue logging not relevant: the lab uses blobs only.
-// checkov:skip=CKV2_AZURE_1:Customer-managed keys out of scope for this lab.
-// checkov:skip=CKV2_AZURE_33:Private endpoints out of scope; the learner fixes public exposure differently.
-// checkov:skip=CKV2_AZURE_38:Soft delete would keep deleted planted data after cleanup; not wanted here.
-// checkov:skip=CKV2_AZURE_40:Shared-key access is the vulnerability the learner must disable.
-// checkov:skip=CKV2_AZURE_41:SAS expiration policy would defeat the planted long-lived SAS scenario.
 resource account 'Microsoft.Storage/storageAccounts@2024-01-01' = {
+  // checkov:skip=CKV_AZURE_190:Deliberately vulnerable lab resource: anonymous blob access is the scenario.
+  // checkov:skip=CKV_AZURE_59:Lab endpoints are probed from the internet (owner decision 3, option b); synthetic data only.
+  // checkov:skip=CKV_AZURE_206:Single short-lived lab account; LRS keeps learner cost near zero.
+  // checkov:skip=CKV_AZURE_33:Queue logging not relevant: the lab uses blobs only.
+  // checkov:skip=CKV2_AZURE_1:Customer-managed keys out of scope for this lab.
+  // checkov:skip=CKV2_AZURE_33:Private endpoints out of scope; the learner fixes public exposure differently.
+  // checkov:skip=CKV2_AZURE_38:Soft delete would keep deleted planted data after cleanup; not wanted here.
+  // checkov:skip=CKV2_AZURE_40:Shared-key access is the vulnerability the learner must disable.
+  // checkov:skip=CKV2_AZURE_41:SAS expiration policy would defeat the planted long-lived SAS scenario.
+  // checkov:skip=CKV_AZURE_35:Lab endpoints must be reachable from the Verifier and the learner (owner decision 3, option b); synthetic data only.
+  // checkov:skip=CKV_AZURE_43:The name is seed-derived at deploy time (bwsas + 10 lowercase alphanumerics, always valid); Checkov cannot evaluate it statically.
   name: names.storageAccount
   location: location
   tags: tags
@@ -59,6 +61,7 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2024-01-01'
 
 // Anyone can read blobs in here: where the CI pipeline "accidentally" published its logs.
 resource buildArtifacts 'Microsoft.Storage/storageAccounts/blobServices/containers@2024-01-01' = {
+  // checkov:skip=CKV_AZURE_34:Deliberately public container: the leaked build log is the lab scenario.
   parent: blobService
   name: 'build-artifacts'
   properties: {
