@@ -1,0 +1,81 @@
+name: kit-release
+
+# Signed, attested lab kit releases (brief §5, ADR-0016). Tag kit-<lab-id>-v<x.y.z>, which must equal that
+# lab's lab.json version. Runs only in the `release` environment (owner approval). bw downloads
+# kit-<lab>-<x.y.z>.tar.gz from this release and refuses it unless its SHA-256 matches the lab page.
+
+on:
+  push:
+    tags: ["kit-*-v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kit-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build, attest, publish kit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: write # create the GitHub release
+      id-token: write # Sigstore keyless signing
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests -t . -v
+
+      - name: Build reproducible kit and SHA256SUMS (lints the lab; version must match the tag)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: python scripts/build_kit.py --tag "$TAG" --out dist
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/kit-*.tar.gz
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          sha=$(cut -d' ' -f1 dist/SHA256SUMS)
+          gh release create "$TAG" dist/* --verify-tag --title "Kit $TAG" \
+            --notes "Lab page command uses: --sha256 $sha. Verify: \`sha256sum -c SHA256SUMS\` and \`gh attestation verify <file> --repo $GITHUB_REPOSITORY\`."
+
+  verify:
+    name: verify published kit
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - name: Download assets and verify checksum and provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir assets
+          cd assets
+          sha256sum -c SHA256SUMS
+          for kit in kit-*.tar.gz; do
+            gh attestation verify "$kit" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/kit-release.yml"
+          done
