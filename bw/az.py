@@ -31,8 +31,8 @@ def format_command(args: Sequence[str]) -> str:
 class Az:
     """Thin, printing wrapper over the az CLI. Tests substitute a fake with the same `run` method."""
 
-    def __init__(self, out: TextIO = sys.stdout, dry_run: bool = False, executable: Optional[str] = None):
-        self.out = out
+    def __init__(self, out: Optional[TextIO] = None, dry_run: bool = False, executable: Optional[str] = None):
+        self.out = out if out is not None else sys.stdout
         self.dry_run = dry_run
         self.executable = executable or shutil.which("az")
 

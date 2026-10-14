@@ -30,8 +30,9 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[List[str]] = None, *, az: Optional[Az] = None, out: TextIO = sys.stdout,
+def main(argv: Optional[List[str]] = None, *, az: Optional[Az] = None, out: Optional[TextIO] = None,
          confirm: Callable[[str], str] = input) -> int:
+    out = out if out is not None else sys.stdout  # resolved at call time so redirection works
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command == "version":

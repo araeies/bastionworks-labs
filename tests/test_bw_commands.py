@@ -14,7 +14,7 @@ PLAYGROUND_TAGS = {"properties": {"tags": {"bastionworks:playground": "true"}}}
 ALLOWED = [{"name": "bw-allowed-locations", "parameters": {"listOfAllowedLocations": {"value": ["uksouth", "westeurope"]}}}]
 
 
-def healthy(**overrides):
+def healthy(overrides=None):
     responses = {
         ("version",): {"azure-cli": "2.80.0"},
         ("account", "show"): SUB,
@@ -22,7 +22,7 @@ def healthy(**overrides):
         ("consumption", "budget", "list"): [{"name": "bw-budget"}],
         ("policy", "assignment", "list"): ALLOWED,
     }
-    responses.update(overrides)
+    responses.update(overrides or {})
     return FakeAz(responses)
 
 
@@ -37,18 +37,18 @@ class DoctorTest(unittest.TestCase):
         self.assertTrue(report.ok, report.checks)
 
     def test_untagged_subscription_is_refused(self):
-        report = run_doctor(healthy(**{("tag", "list"): {"properties": {"tags": {}}}}), "uksouth")
+        report = run_doctor(healthy({("tag", "list"): {"properties": {"tags": {}}}}), "uksouth")
         self.assertFalse(report.ok)
         failed = [c for c in report.checks if not c.ok]
         self.assertEqual([c.name for c in failed], ["Playground tag"])
         self.assertIn("never use a work subscription", failed[0].detail)
 
     def test_tag_must_be_exactly_true(self):
-        report = run_doctor(healthy(**{("tag", "list"): {"properties": {"tags": {"bastionworks:playground": "yes"}}}}), "uksouth")
+        report = run_doctor(healthy({("tag", "list"): {"properties": {"tags": {"bastionworks:playground": "yes"}}}}), "uksouth")
         self.assertFalse(report.ok)
 
     def test_missing_budget_fails(self):
-        self.assertFalse(run_doctor(healthy(**{("consumption", "budget", "list"): []}), "uksouth").ok)
+        self.assertFalse(run_doctor(healthy({("consumption", "budget", "list"): []}), "uksouth").ok)
 
     def test_disallowed_region_fails(self):
         report = run_doctor(healthy(), "eastus")
@@ -56,21 +56,21 @@ class DoctorTest(unittest.TestCase):
         self.assertIn("eastus is not in the allowed regions", [c for c in report.checks if not c.ok][0].detail)
 
     def test_missing_guardrail_policy_fails(self):
-        self.assertFalse(run_doctor(healthy(**{("policy", "assignment", "list"): []}), "uksouth").ok)
+        self.assertFalse(run_doctor(healthy({("policy", "assignment", "list"): []}), "uksouth").ok)
 
     def test_not_signed_in_stops_early(self):
-        report = run_doctor(healthy(**{("account", "show"): az_error("Please run 'az login'")}), "uksouth")
+        report = run_doctor(healthy({("account", "show"): az_error("Please run 'az login'")}), "uksouth")
         self.assertFalse(report.ok)
         self.assertEqual(report.checks[-1].name, "Signed in")
 
     def test_cli_exit_code_reflects_result(self):
         out = io.StringIO()
         self.assertEqual(main(["doctor"], az=healthy(), out=out), 0)
-        self.assertEqual(main(["doctor"], az=healthy(**{("tag", "list"): {}}), out=io.StringIO()), 1)
+        self.assertEqual(main(["doctor"], az=healthy({("tag", "list"): {}}), out=io.StringIO()), 1)
         self.assertIn("All checks passed", out.getvalue())
 
 
-def lab_world(**overrides):
+def lab_world(overrides=None):
     responses = {
         ("account", "show"): SUB,
         ("group", "list", "--tag"): [{"name": "rg-bw-storage-sas-leak-k7q2mx4p"}],
@@ -93,7 +93,7 @@ def lab_world(**overrides):
         ],
         ("resource", "list"): [],
     }
-    responses.update(overrides)
+    responses.update(overrides or {})
     return FakeAz(responses)
 
 
@@ -129,7 +129,7 @@ class CleanupTest(unittest.TestCase):
         self.assertIn("LEFTOVERS", out.getvalue())
 
     def test_clean_subscription_reports_clean(self):
-        az = lab_world(**{("group", "list", "--tag"): [], ("role", "assignment", "list"): [],
+        az = lab_world({("group", "list", "--tag"): [], ("role", "assignment", "list"): [],
                           ("policy", "assignment", "list"): [], ("keyvault", "list-deleted"): []})
         out = io.StringIO()
         self.assertEqual(run_cleanup(az, "storage-sas-leak", out, confirm=lambda _: "x"), 0)
