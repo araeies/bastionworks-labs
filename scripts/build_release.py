@@ -18,12 +18,16 @@ from typing import List
 
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGE_DIR = ROOT / "bw"
+# bw imports labspec, so both ship in the release (one manifest parser for kit tooling and Verifier).
+PACKAGE_DIRS = (ROOT / "bw", ROOT / "labspec")
 FIXED_MTIME = 0
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 
 
 def package_files() -> List[Path]:
-    files = [p for p in PACKAGE_DIR.rglob("*") if p.is_file() and "__pycache__" not in p.parts]
+    files = [
+        p for d in PACKAGE_DIRS for p in d.rglob("*") if p.is_file() and "__pycache__" not in p.parts
+    ]
     return sorted(files, key=lambda p: p.relative_to(ROOT).as_posix())
 
 

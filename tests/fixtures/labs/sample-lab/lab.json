@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-lab",
+  "version": "1.0.0",
+  "title": "Sample lab used by labspec tests",
+  "track": "data-protection",
+  "level": "intermediate",
+  "estimatedMinutes": 45,
+  "learnerCostEstimateUsd": 0.1,
+  "mitre": [{ "id": "T1530", "name": "Data from Cloud Storage" }],
+  "mcsb": ["DP-3"],
+  "scenario": "scenario.md",
+  "kit": {
+    "scope": "resourceGroup",
+    "template": "infra/main.bicep",
+    "selfChecks": "checks/local.py",
+    "cleanup": "cleanup.sh",
+    "names": { "storageAccount": { "prefix": "bwsas", "length": 10 } },
+    "outOfGroup": []
+  },
+  "hints": ["hints/1.md", "hints/2.md"],
+  "checkpoints": [
+    {
+      "id": "leak-dead",
+      "title": "The leaked token no longer works",
+      "method": "externalProbe",
+      "submit": "leakedSasUrl",
+      "hostSuffixes": [".blob.core.windows.net"],
+      "hostName": "storageAccount",
+      "expect": { "status": [403] },
+      "redactAfterUse": true,
+      "positiveControl": "account-alive must pass in the same submission window"
+    },
+    {
+      "id": "report",
+      "title": "Write the incident note for the CISO",
+      "method": "rubricReview",
+      "submit": "repoAtCommit",
+      "rubric": "rubrics/incident-note.md"
+    }
+  ],
+  "debrief": "private:debriefs/sample-lab.md"
+}
