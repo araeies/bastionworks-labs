@@ -5,9 +5,9 @@ Works from a fresh Cloud Shell session with no local state: everything is found 
 """
 
 import json
-from typing import Any, Callable, Dict, List, NamedTuple, TextIO
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, TextIO
 
-from bw.az import Az
+from bw.az import Az, AzError
 from bw.conventions import LAB_TAG, PLAYGROUND_LAB, PLAYGROUND_TAG, owner_marker
 
 
@@ -18,6 +18,7 @@ class CleanupPlan(NamedTuple):
     entra_apps: List[Dict[str, Any]]
     budgets: List[str]
     remove_playground_tag: bool
+    entra_checked: bool = True  # False when the caller cannot read Microsoft Graph (e.g. a CI identity)
 
     @property
     def empty(self) -> bool:
@@ -40,9 +41,14 @@ def _owned_policy_assignments(az: Az, lab_id: str) -> List[Dict[str, Any]]:
     return [a for a in assignments if (a.get("metadata") or {}).get("bastionworksLab") == lab_id]
 
 
-def _owned_entra_apps(az: Az, lab_id: str) -> List[Dict[str, Any]]:
+def _owned_entra_apps(az: Az, lab_id: str) -> Optional[List[Dict[str, Any]]]:
+    """None means "could not check": listing app registrations needs Microsoft Graph read permission, which a
+    learner (Global Administrator of their own tenant) has but a narrowly scoped CI identity does not."""
     tag = owner_marker(lab_id).replace("'", "''")
-    return az.run(["ad", "app", "list", "--filter", f"tags/any(t:t eq '{tag}')"]) or []
+    try:
+        return az.run(["ad", "app", "list", "--filter", f"tags/any(t:t eq '{tag}')"]) or []
+    except AzError:
+        return None
 
 
 def _owned_budgets(az: Az, lab_id: str) -> List[str]:
@@ -65,13 +71,15 @@ def _deleted_vaults(az: Az, lab_id: str) -> List[Dict[str, Any]]:
 
 def plan_cleanup(az: Az, lab_id: str) -> CleanupPlan:
     groups = az.run(["group", "list", "--tag", _tag_filter(lab_id)]) or []
+    entra_apps = _owned_entra_apps(az, lab_id)
     return CleanupPlan(
         resource_groups=sorted(g["name"] for g in groups),
         role_assignments=_owned_role_assignments(az, lab_id),
         policy_assignments=_owned_policy_assignments(az, lab_id),
-        entra_apps=_owned_entra_apps(az, lab_id),
+        entra_apps=entra_apps or [],
         budgets=_owned_budgets(az, lab_id),
         remove_playground_tag=_playground_tagged(az, lab_id),
+        entra_checked=entra_apps is not None,
     )
 
 
@@ -82,7 +90,7 @@ def leftovers(az: Az, lab_id: str) -> List[str]:
     found += [f"resource {r['id']}" for r in az.run(["resource", "list", "--tag", _tag_filter(lab_id)]) or []]
     found += [f"role assignment {a['id']}" for a in _owned_role_assignments(az, lab_id)]
     found += [f"policy assignment {a['id']}" for a in _owned_policy_assignments(az, lab_id)]
-    found += [f"Entra app {a.get('displayName')} ({a.get('appId')})" for a in _owned_entra_apps(az, lab_id)]
+    found += [f"Entra app {a.get('displayName')} ({a.get('appId')})" for a in _owned_entra_apps(az, lab_id) or []]
     found += [f"soft-deleted Key Vault {v['name']}" for v in _deleted_vaults(az, lab_id)]
     found += [f"budget {b}" for b in _owned_budgets(az, lab_id)]
     if _playground_tagged(az, lab_id):
@@ -139,6 +147,12 @@ def run_cleanup(az: Az, lab_id: str, out: TextIO, confirm: Callable[[str], str],
         print("\nDry run complete: nothing was deleted.", file=out)
         return 0
 
+    if not plan.entra_checked:
+        print("
+Note: Entra app registrations could not be listed (no Microsoft Graph read permission), so they were",
+              file=out)
+        print(f"not checked. If this lab creates Entra apps, check by hand: az ad app list --filter \"tags/any(t:t eq '{owner_marker(lab_id)}')\"",
+              file=out)
     remaining = leftovers(az, lab_id)
     if remaining:
         print(f"\nLEFTOVERS: {len(remaining)} item(s) for lab '{lab_id}' still exist:", file=out)
