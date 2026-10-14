@@ -53,6 +53,14 @@ class BuildReleaseTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, self.assertRaises(SystemExit):
             build_release.main(["--version", "1.0; rm -rf /", "--out", tmp])
 
+    def test_sbom_is_cyclonedx_accepted_by_actions_attest(self):
+        sbom = build_release.build_sbom("0.0.1-test.2")
+        # actions/attest requires bomFormat, serialNumber and specVersion (src/sbom.ts).
+        self.assertEqual(sbom["bomFormat"], "CycloneDX")
+        self.assertEqual(sbom["specVersion"], "1.5")
+        self.assertRegex(sbom["serialNumber"], r"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+        self.assertEqual(sbom, build_release.build_sbom("0.0.1-test.2"))  # reproducible
+
     def test_writes_tarball_and_checksum(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = io.StringIO()
