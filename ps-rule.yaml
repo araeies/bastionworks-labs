@@ -15,7 +15,7 @@ include:
 input:
   pathIgnore:
     - "**"
-    - "!labs/*/infra/*.bicepparam"
+    - "!labs/**/*.bicepparam"
 
 output:
   culture: [en-GB]
