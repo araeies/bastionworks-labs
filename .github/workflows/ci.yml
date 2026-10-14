@@ -137,6 +137,15 @@ jobs:
           modules: PSRule.Rules.Azure
           inputType: repository
           outcome: Fail,Error
+          outputFormat: Json
+          outputPath: reports/ps-rule.json
+      # A zero-rule pass looks identical to a scan that silently analysed nothing (this happened once).
+      - name: Fail if PSRule analysed nothing
+        if: ${{ always() }}
+        run: |
+          count=$(jq length reports/ps-rule.json 2>/dev/null || echo 0)
+          echo "PSRule rule results: $count"
+          [ "$count" -gt 0 ] || { echo "PSRule processed 0 rules: kit expansion is broken."; exit 1; }
       - name: Checkov (Bicep)
         run: >
           docker run --rm -v "$GITHUB_WORKSPACE:/src:ro" -w /src "$CHECKOV_IMAGE"
