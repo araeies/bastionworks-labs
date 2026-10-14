@@ -93,8 +93,7 @@ def main(argv: Optional[List[str]] = None, *, az: Optional[Az] = None, out: Opti
         print(str(error), file=sys.stderr)
         return 127
     except (KitError, DeployError, LintError, InvalidSeed, FileNotFoundError) as error:
-        print(f"
-bw: {error}", file=sys.stderr)
+        print(f"\nbw: {error}", file=sys.stderr)
         return 1
     except AzError as error:
         print(f"\nAzure CLI error: {error}", file=sys.stderr)
