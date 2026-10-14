@@ -8,11 +8,13 @@ Usage: python3 scripts/build_release.py --version 0.0.1 --out dist
 
 import argparse
 import gzip
+import json
 import hashlib
 import io
 import re
 import sys
 import tarfile
+import uuid
 from pathlib import Path
 from typing import List
 
@@ -56,6 +58,27 @@ def build_tarball(version: str) -> bytes:
     with gzip.GzipFile(filename="", mode="wb", fileobj=compressed, mtime=FIXED_MTIME) as gz:
         gz.write(raw.getvalue())
     return compressed.getvalue()
+
+
+def build_sbom(version: str) -> dict:
+    """Minimal CycloneDX 1.5 SBOM. bw and labspec use only the Python standard library, so the component
+    list is empty. serialNumber is required by actions/attest; it is a UUIDv5 of the version, so the same
+    release always gets the same SBOM bytes (reproducible)."""
+    return {
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "serialNumber": f"urn:uuid:{uuid.uuid5(uuid.NAMESPACE_URL, f'https://github.com/araeies/bastionworks-labs/bw/{version}')}",
+        "version": 1,
+        "metadata": {
+            "component": {
+                "type": "application",
+                "name": "bw",
+                "version": version,
+                "licenses": [{"license": {"name": "PolyForm-Shield-1.0.0"}}],
+            }
+        },
+        "components": [],
+    }
 
 
 def main(argv: List[str]) -> int:

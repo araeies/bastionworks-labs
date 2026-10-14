@@ -37,25 +37,10 @@ jobs:
       - name: Unit tests
         run: python -m unittest discover -s tests -t . -v
 
-      - name: Build reproducible tarball and SHA256SUMS
+      - name: Build reproducible tarball, SHA256SUMS and CycloneDX SBOM
         env:
           TAG: ${{ github.ref_name }}
         run: python scripts/build_release.py --version "${TAG#v}" --out dist
-
-      - name: CycloneDX SBOM
-        run: |
-          set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
-          python - "$version" > dist/bw.cdx.json <<'PY'
-          import json, sys
-          v = sys.argv[1]
-          print(json.dumps({
-              "bomFormat": "CycloneDX", "specVersion": "1.5", "version": 1,
-              "metadata": {"component": {"type": "application", "name": "bw", "version": v,
-                           "licenses": [{"license": {"name": "PolyForm-Shield-1.0.0"}}]}},
-              "components": [],
-          }, indent=2))
-          PY
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
@@ -63,7 +48,7 @@ jobs:
           subject-path: dist/bw-*.tar.gz
 
       - name: Attest SBOM
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2 (attest-sbom is deprecated)
         with:
           subject-path: dist/bw-*.tar.gz
           sbom-path: dist/bw.cdx.json
