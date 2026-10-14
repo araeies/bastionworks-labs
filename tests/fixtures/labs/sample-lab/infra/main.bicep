@@ -1,0 +1,2 @@
+// fixture
+targetScope = 'resourceGroup'

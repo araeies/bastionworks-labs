@@ -35,8 +35,10 @@ class BuildReleaseTest(unittest.TestCase):
         with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
             members = tar.getmembers()
         self.assertTrue(members)
+        names = {m.name for m in members}
+        self.assertIn(f"bw-{__version__}/labspec/schema/manifest.schema.json", names)
         for member in members:
-            self.assertTrue(member.name.startswith(f"bw-{__version__}/bw/"), member.name)
+            self.assertTrue(member.name.startswith((f"bw-{__version__}/bw/", f"bw-{__version__}/labspec/")), member.name)
             self.assertNotIn("__pycache__", member.name)
             self.assertNotIn("..", member.name)
             self.assertEqual(member.mtime, 0)

@@ -41,6 +41,10 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m unittest discover -s tests -t . -v
+      - name: Lint lab packages
+        run: |
+          python -m labspec lint tests/fixtures/labs/sample-lab
+          if [ -d labs ]; then python -m labspec lint --all labs; fi
 
   secrets:
     name: secrets (gitleaks)
