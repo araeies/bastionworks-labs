@@ -1,0 +1,12 @@
+# gitleaks configuration: default rules plus narrowly scoped allowlists. Every entry needs a reason.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Azure built-in policy definition IDs: public, identical in every tenant, not credentials"
+regexTarget = "match"
+regexes = [
+  '''e56962a6-4747-49cd-b67b-bf8b01975c4c''', # Allowed locations
+  '''6c112d4e-5bc7-47ae-a041-ea2d9dccd749''', # Not allowed resource types
+  '''cccc23c7-8427-4f53-ad12-b6a63eb452b3''', # Allowed virtual machine size SKUs
+]

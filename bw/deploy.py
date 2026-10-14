@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Callable, Dict, TextIO
 
 from bw.az import Az
-from bw.conventions import EXPIRES_TAG, KIT_TAG, LAB_TAG, SEED_TAG, resource_group_name
+from bw.conventions import EXPIRES_TAG, KIT_TAG, LAB_TAG, PLAYGROUND_TAG, SEED_TAG, resource_group_name
 from bw.doctor import print_report, run_doctor
 from labspec import derive_name, load_manifest, normalise_seed
 
@@ -66,6 +66,10 @@ def run_deploy(az: Az, lab_id: str, seed: str, kit_dir: Path, region: str, out: 
                 return 1
         az.run(["deployment", "sub", "create", "--location", region, "--name", f"bw-{manifest.id}",
                 "--template-file", str(template), "--parameters", *params], mutating=True)
+        if any(o["type"] == "subscriptionTag" for o in kit["outOfGroup"]):
+            # Merge, never replace: a Bicep tags resource would wipe the learner's existing subscription tags.
+            az.run(["tag", "update", "--resource-id", f"/subscriptions/{account['id']}", "--operation", "Merge",
+                    "--tags", f"{PLAYGROUND_TAG}=true"], mutating=True)
         print("\nDone. Now run: bw doctor", file=out)
         return 0
 

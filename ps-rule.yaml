@@ -1,0 +1,23 @@
+# PSRule for Azure on every kit (brief §7.2). Kits are DELIBERATELY insecure where the lab requires it;
+# each such rule is excluded per kit below with the lab and reason, never globally.
+configuration:
+  AZURE_BICEP_PARAMS_FILE_EXPANSION: true
+  AZURE_PARAMETER_FILE_EXPANSION: true
+
+requires:
+  PSRule.Rules.Azure: "1.47.0"
+
+include:
+  module:
+    - PSRule.Rules.Azure
+
+input:
+  pathIgnore:
+    - "**"
+    - "!labs/*/infra/*.bicepparam"
+
+output:
+  culture: [en-GB]
+
+rule:
+  exclude: []
