@@ -148,8 +148,7 @@ def run_cleanup(az: Az, lab_id: str, out: TextIO, confirm: Callable[[str], str],
         return 0
 
     if not plan.entra_checked:
-        print("
-Note: Entra app registrations could not be listed (no Microsoft Graph read permission), so they were",
+        print("\nNote: Entra app registrations could not be listed (no Microsoft Graph read permission), so they were",
               file=out)
         print(f"not checked. If this lab creates Entra apps, check by hand: az ad app list --filter \"tags/any(t:t eq '{owner_marker(lab_id)}')\"",
               file=out)
