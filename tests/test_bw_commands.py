@@ -155,6 +155,15 @@ class CleanupTest(unittest.TestCase):
         self.assertIn("consumption budget delete --budget-name bw-lab-0-budget-pg1234", flat)
         self.assertTrue(any(m.startswith("tag update") and "--operation Delete" in m for m in flat))
 
+    def test_cleanup_continues_without_graph_permission_and_says_so(self):
+        az = lab_world({("group", "list", "--tag"): [], ("role", "assignment", "list"): [],
+                        ("policy", "assignment", "list"): [], ("keyvault", "list-deleted"): [],
+                        ("consumption", "budget", "list"): [], ("ad", "app", "list"): az_error("Insufficient privileges")})
+        out = io.StringIO()
+        self.assertEqual(run_cleanup(az, "storage-sas-leak", out, confirm=lambda _: "x"), 0)
+        self.assertIn("could not be listed", out.getvalue())
+        self.assertIn("Clean: nothing tagged", out.getvalue())
+
     def test_dry_run_executes_no_mutations(self):
         az = lab_world()
         az.dry_run = True
