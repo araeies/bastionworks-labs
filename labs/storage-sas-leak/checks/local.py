@@ -49,14 +49,16 @@ def main():
 
     results = [
         ("Account-level anonymous access disabled (allowBlobPublicAccess = false)", account.get("allowBlobPublicAccess") is False),
-        ("Shared-key access disabled (allowSharedKeyAccess = false)", account.get("allowSharedKeyAccess") is False),
         (f"Build log not readable anonymously (got HTTP {status})", status in (404, 409)),
     ]
     print()
     for label, ok in results:
         print(f"  [{'PASS' if ok else 'TODO'}] {label}")
-    print("\nDisabling shared-key access is one way to kill the leaked SAS; rotating key 1 is another.")
-    print("These checks can't see which you chose. The leak-dead checkpoint tests the token itself.")
+    # Advice, not pass/fail: rotating key 1 kills the leaked SAS just as well and leaves shared keys on.
+    shared_key_off = account.get("allowSharedKeyAccess") is False
+    print(f"  [{'INFO'}] Shared-key access is {'disabled' if shared_key_off else 'still enabled'}"
+          + ("" if shared_key_off else ": fine if you rotated key 1, but disabling it prevents the next leak too"))
+    print("\nThese checks can't test the leaked token itself; the leak-dead checkpoint does.")
     return 0 if all(ok for _, ok in results) else 1
 
 
