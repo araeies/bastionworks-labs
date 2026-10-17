@@ -33,5 +33,5 @@ Your starting point is the public URL `bw deploy` printed:
 | The leaked token no longer works | Submit the leaked URL; the platform makes one request and expects a refusal. The URL is redacted before anything is stored | Verified |
 | The original account still serves data, securely | Submit a read-only SAS **you** issue for `customer-exports/status/healthcheck.txt`, valid 60 minutes or less | Verified |
 | The build log is no longer publicly readable | Submit the build-log URL; the platform requests it without credentials | Verified |
-| Your IaC prevents it happening again | Submit your repo at a commit; the platform scans the storage account definition | Verified |
-| Incident note for the CISO | Submit your repo at a commit; reviewed against the published rubric (`rubrics/incident-note.md`) | Reviewed |
+| Your IaC prevents it happening again | Submit your **public** GitHub repo at a full 40-character commit SHA. The platform compiles your **Bicep** (Terraform isn't supported yet) and checks the storage account that uses your account name | Verified |
+| Incident note for the CISO | Commit the note as **`incident-note.md` at the root** of the same repo and submit the repo at a commit. It's reviewed against the published rubric (`rubrics/incident-note.md`) | Reviewed |
