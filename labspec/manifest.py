@@ -113,8 +113,26 @@ def _semantic_errors(lab_dir: Path, data: Dict[str, Any]) -> List[str]:
     if data["id"] != lab_dir.name:
         errors.append(f"id '{data['id']}' must equal the directory name '{lab_dir.name}'")
 
-    referenced = [data["scenario"], kit["template"], kit["cleanup"]] + list(data["hints"])
-    for key in ("seed", "selfChecks"):
+    # scope "none": a lab with nothing to deploy (it brings its own data, e.g. lab 3's sign-in logs). It must cost
+    # nothing and can't use checks that look for deployed resources. Every other scope needs the deployment fields.
+    kitless = kit["scope"] == "none"
+    deploy_fields = ("template", "parameters", "seed", "cleanup", "names", "outOfGroup")
+    if kitless:
+        present = [f for f in deploy_fields if f in kit]
+        if present:
+            errors.append(f"kit scope 'none' deploys nothing, so it can't set {', '.join(present)}")
+        if data["learnerCostEstimateUsd"] != 0:
+            errors.append("kit scope 'none' deploys nothing, so learnerCostEstimateUsd must be 0")
+        for cp in data["checkpoints"]:
+            if cp["method"] in ("externalProbe", "artefactScan"):
+                errors.append(f"checkpoint '{cp['id']}': {cp['method']} needs deployed resources; kit scope 'none' has none")
+    else:
+        for field in ("template", "cleanup", "names", "outOfGroup"):
+            if field not in kit:
+                errors.append(f"kit scope '{kit['scope']}' requires '{field}'")
+
+    referenced = [data["scenario"]] + list(data["hints"])
+    for key in ("template", "cleanup", "seed", "selfChecks"):
         if key in kit:
             referenced.append(kit[key])
     referenced += [cp["rubric"] for cp in data["checkpoints"] if "rubric" in cp]
@@ -142,7 +160,7 @@ def _semantic_errors(lab_dir: Path, data: Dict[str, Any]) -> List[str]:
         if method == "externalProbe":
             if "status" not in cp.get("expect", {}):
                 errors.append(f"{where}: externalProbe requires expect.status")
-            if cp.get("hostName") and cp["hostName"] not in kit["names"]:
+            if cp.get("hostName") and cp["hostName"] not in kit.get("names", {}):
                 errors.append(f"{where}: hostName '{cp['hostName']}' is not defined in kit.names")
         if submit in SAS_SUBMISSIONS and cp.get("redactAfterUse") is not True:
             errors.append(f"{where}: SAS submissions must set redactAfterUse: true (exception E6)")
@@ -150,6 +168,15 @@ def _semantic_errors(lab_dir: Path, data: Dict[str, Any]) -> List[str]:
             errors.append(f"{where}: issuedSasUrl requires maxValidityMinutes <= 60 (exception E6)")
         if submit not in SAS_SUBMISSIONS and ("redactAfterUse" in cp or "maxValidityMinutes" in cp):
             errors.append(f"{where}: redactAfterUse/maxValidityMinutes only apply to SAS submissions")
+        # repoFile: which file in the learner's repo the check reads (repo submissions only).
+        if "repoFile" in cp and any(part in ("", ".", "..") for part in str(cp["repoFile"]).split("/")):
+            errors.append(f"{where}: repoFile must be a plain path inside the repo (no '.', '..' or empty segments)")
+        if "repoFile" in cp and submit != "repoAtCommit":
+            errors.append(f"{where}: repoFile only applies to repoAtCommit submissions")
+        if "repoFile" in cp and method not in ("hiddenDataset", "rubricReview"):
+            errors.append(f"{where}: repoFile only applies to hiddenDataset and rubricReview")
+        if method == "hiddenDataset" and submit == "repoAtCommit" and not str(cp.get("repoFile", "")).endswith(".kql"):
+            errors.append(f"{where}: hiddenDataset repo submissions need repoFile ending in .kql (the rule to run)")
 
     private_relative = data["debrief"][len("private:"):]
     if (lab_dir / private_relative).exists():

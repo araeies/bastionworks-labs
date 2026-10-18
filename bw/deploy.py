@@ -27,7 +27,7 @@ class DeployError(Exception):
 
 def derived_names(manifest, seed: str) -> Dict[str, str]:
     names = {}
-    for key, spec in manifest.kit["names"].items():
+    for key, spec in manifest.kit.get("names", {}).items():
         names[key] = derive_name(manifest.id, seed, key, spec["prefix"], spec["length"], spec.get("alphabet", "lower-alnum"))
     return names
 
@@ -58,6 +58,12 @@ def run_deploy(az: Az, lab_id: str, seed: str, kit_dir: Path, region: str, out: 
     if manifest.id != lab_id:
         raise DeployError(f"kit is for '{manifest.id}', not '{lab_id}'")
     seed = normalise_seed(seed)
+    if manifest.kit["scope"] == "none":  # the lab brings its own data; the seed still picks the learner's variant
+        print(f"\n{manifest.data['title']} ({manifest.id}@{manifest.version})", file=out)
+        print("This lab has nothing to deploy and costs nothing: it runs on its own data.", file=out)
+        print(f"Your seed is {seed}; the site uses it to choose your version of the hidden data.", file=out)
+        print(f"Start with the scenario: {manifest.data['scenario']}", file=out)
+        return 0
     names = derived_names(manifest, seed)
     kit = manifest.kit
     template = manifest.path(kit["template"])

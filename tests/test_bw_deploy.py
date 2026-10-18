@@ -160,3 +160,22 @@ class StorageSasLeakKitTest(unittest.TestCase):
         self.assertEqual(methods["leak-dead"], "externalProbe")
         self.assertEqual(methods["account-alive"], "externalProbe")
         self.assertEqual(methods["report"], "rubricReview")
+
+
+class KitlessDeployTest(unittest.TestCase):
+    setUp = DeployTest.setUp
+    tearDown = DeployTest.tearDown
+
+    def test_kitless_lab_deploys_nothing_and_never_calls_azure(self):
+        from tests.test_manifest import _kitless
+        path = self.lab / "lab.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        _kitless(data)
+        path.write_text(json.dumps(data), encoding="utf-8")
+        az = FakeAz({})
+        out = io.StringIO()
+        self.assertEqual(run_deploy(az, "sample-lab", SEED, self.lab, "uksouth", out, confirm=lambda _: "no"), 0)
+        self.assertEqual(az.calls, [])
+        self.assertIn("nothing to deploy", out.getvalue())
+        self.assertIn("K7Q2MX4P", out.getvalue().replace("-", ""))
+        self.assertEqual(derived_names(load_manifest(self.lab), "K7Q2MX4P"), {})
