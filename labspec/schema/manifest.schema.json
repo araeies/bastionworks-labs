@@ -55,9 +55,10 @@
     "kit": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["scope", "template", "cleanup", "names", "outOfGroup"],
+      "required": ["scope"],
+      "description": "scope none: a lab with nothing to deploy (it brings its own data). Otherwise template, cleanup, names and outOfGroup are required (enforced by labspec lint).",
       "properties": {
-        "scope": { "enum": ["resourceGroup", "subscription"] },
+        "scope": { "enum": ["resourceGroup", "subscription", "none"] },
         "template": { "$ref": "#/$defs/relativePath" },
         "parameters": { "type": "object" },
         "seed": { "$ref": "#/$defs/relativePath" },
@@ -123,6 +124,7 @@
         "rubric": { "$ref": "#/$defs/relativePath", "description": "Published rubric (brief 4.3); calibration sets stay in verifier-private." },
         "dataset": { "type": "string", "pattern": "^private:[a-z0-9/_.-]+$" },
         "questions": { "type": "string", "pattern": "^private:[a-z0-9/_.-]+$" },
+        "repoFile": { "$ref": "#/$defs/relativePath", "description": "For repoAtCommit submissions: the file in the learner's repo this checkpoint reads (for example detections/password-spray.kql). rubricReview defaults to incident-note.md." },
         "positiveControl": {
           "type": "string",
           "minLength": 10,

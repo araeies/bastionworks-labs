@@ -111,3 +111,65 @@ class ManifestLintTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def _kitless(d):
+    """Turn the sample into a lab-3-style lab: nothing to deploy, a hidden-dataset rule plus a reviewed write-up."""
+    d["kit"] = {"scope": "none", "selfChecks": "checks/local.py"}
+    d["learnerCostEstimateUsd"] = 0
+    d["checkpoints"] = [
+        {"id": "detect", "title": "Your rule catches the attack", "method": "hiddenDataset", "submit": "repoAtCommit",
+         "repoFile": "detections/password-spray.kql", "dataset": "private:password-spray/v1",
+         "positiveControl": "Benign lookalikes must not be flagged, so a rule that returns everything fails."},
+        {"id": "runbook", "title": "Write the rule's runbook entry", "method": "rubricReview", "submit": "repoAtCommit",
+         "repoFile": "detections/password-spray.md", "rubric": "rubrics/incident-note.md"},
+    ]
+
+
+class KitlessAndRepoFileTest(ManifestLintTest):
+    def test_kitless_lab_loads(self):
+        self.edit(_kitless)
+        manifest = load_manifest(self.lab)
+        self.assertEqual(manifest.kit["scope"], "none")
+        self.assertEqual(manifest.checkpoints[0]["repoFile"], "detections/password-spray.kql")
+
+    def test_kitless_lab_cannot_set_deployment_fields(self):
+        self.edit(lambda d: (_kitless(d), d["kit"].update({"template": "infra/main.bicep", "names": {}})))
+        self.assert_lint_error("can't set template, names")
+
+    def test_kitless_lab_must_cost_nothing(self):
+        self.edit(lambda d: (_kitless(d), d.update({"learnerCostEstimateUsd": 0.5})))
+        self.assert_lint_error("learnerCostEstimateUsd must be 0")
+
+    def test_kitless_lab_cannot_probe_or_scan(self):
+        def change(d):
+            _kitless(d)
+            d["checkpoints"].append({"id": "probe", "title": "Something answers", "method": "externalProbe", "submit": "url",
+                                     "hostSuffixes": [".blob.core.windows.net"], "hostName": "x", "expect": {"status": [200]},
+                                     "positiveControl": "A deployed resource would have to answer, but there are none."})
+        self.edit(change)
+        self.assert_lint_error("externalProbe needs deployed resources")
+
+    def test_deploying_kit_still_needs_its_fields(self):
+        self.edit(lambda d: d["kit"].pop("cleanup"))
+        self.assert_lint_error("requires 'cleanup'")
+
+    def test_hidden_dataset_repo_submission_needs_a_kql_file(self):
+        self.edit(lambda d: (_kitless(d), d["checkpoints"][0].update({"repoFile": "detections/rule.txt"})))
+        self.assert_lint_error("repoFile ending in .kql")
+
+    def test_repo_file_only_for_repo_submissions_and_reading_methods(self):
+        self.edit(lambda d: d["checkpoints"][0].update({"repoFile": "x.md"}))  # leak-dead: externalProbe + leakedSasUrl
+        self.assert_lint_error("repoFile only applies to repoAtCommit submissions")
+        with self.assertRaises(LintError) as caught:
+            load_manifest(self.lab)
+        self.assertTrue(any("only applies to hiddenDataset and rubricReview" in e for e in caught.exception.errors))
+
+    def test_repo_file_must_stay_inside_the_repo(self):
+        self.edit(lambda d: (_kitless(d), d["checkpoints"][1].update({"repoFile": "../outside.md"})))
+        self.assert_lint_error("repoFile")
+
+    def test_repo_file_rejects_dot_segments_anywhere(self):
+        for bad in ("detections/../../etc/x.kql", "detections/./x.kql", "detections//x.kql"):
+            self.edit(lambda d, bad=bad: (_kitless(d), d["checkpoints"][0].update({"repoFile": bad})))
+            self.assert_lint_error("plain path inside the repo")
