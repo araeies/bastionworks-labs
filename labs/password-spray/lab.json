@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "password-spray",
+  "version": "0.1.0",
+  "title": "The 3 a.m. sign-in",
+  "track": "detection-engineering",
+  "level": "intermediate",
+  "estimatedMinutes": 60,
+  "learnerCostEstimateUsd": 0,
+  "mitre": [
+    { "id": "T1110.003", "name": "Brute Force: Password Spraying" },
+    { "id": "T1078", "name": "Valid Accounts" }
+  ],
+  "mcsb": ["LT-1", "LT-3", "IM-6"],
+  "scenario": "scenario.md",
+  "kit": { "scope": "none" },
+  "hints": ["hints/1.md", "hints/2.md", "hints/3.md"],
+  "checkpoints": [
+    {
+      "id": "detect",
+      "title": "Your rule catches the attack on unseen data, without flooding the analysts",
+      "method": "hiddenDataset",
+      "submit": "repoAtCommit",
+      "repoFile": "detections/password-spray.kql",
+      "dataset": "private:password-spray/v1",
+      "positiveControl": "The unseen data includes benign lookalikes (typos, a shared office address, a noisy service account), so a rule that flags everything fails on false alarms and one that flags nothing fails on detection."
+    },
+    {
+      "id": "runbook",
+      "title": "Write the rule's runbook entry for the on-call analyst",
+      "method": "rubricReview",
+      "submit": "repoAtCommit",
+      "repoFile": "detections/password-spray.md",
+      "rubric": "rubrics/runbook-entry.md"
+    }
+  ],
+  "debrief": "private:debriefs/password-spray.md"
+}
