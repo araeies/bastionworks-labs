@@ -1,0 +1,86 @@
+{
+  "pick": 5,
+  "passPercent": 80,
+  "questions": [
+    {
+      "id": "budget-at-limit",
+      "stem": "Your playground's monthly budget is $10. What does Azure do when your spending passes $10?",
+      "options": [
+        { "id": "a", "text": "It stops or deallocates your resources until next month" },
+        { "id": "b", "text": "It sends the alerts you configured; spending carries on" },
+        { "id": "c", "text": "It deletes the resource groups that caused the spend" },
+        { "id": "d", "text": "It caps the bill at $10 and absorbs the rest" }
+      ]
+    },
+    {
+      "id": "policy-existing-resources",
+      "stem": "You assign the allowed-locations policy today. What happens to a storage account someone created last week in a region the policy doesn't allow?",
+      "options": [
+        { "id": "a", "text": "Azure deletes it" },
+        { "id": "b", "text": "Azure moves it to an allowed region" },
+        { "id": "c", "text": "It keeps running and shows as non-compliant" },
+        { "id": "d", "text": "It's frozen and can't be read until it's moved" }
+      ]
+    },
+    {
+      "id": "playground-tag",
+      "stem": "What does the bastionworks:playground=true tag on your subscription protect against?",
+      "options": [
+        { "id": "a", "text": "bw deploying a lab kit into a subscription that wasn't set up for it" },
+        { "id": "b", "text": "Attackers signing in to the subscription" },
+        { "id": "c", "text": "Spending above the budget" },
+        { "id": "d", "text": "Anyone changing the guardrail policies" }
+      ]
+    },
+    {
+      "id": "policy-vs-identity",
+      "stem": "An attacker gets a valid credential for an identity with Owner on your playground subscription. Can the guardrail policies stop them reading data in a storage account?",
+      "options": [
+        { "id": "a", "text": "Yes: the denied-types policy blocks data access" },
+        { "id": "b", "text": "No: these policies govern how resources are configured and created, not what a valid identity can read" },
+        { "id": "c", "text": "Yes, but only in allowed regions" },
+        { "id": "d", "text": "Only after the budget alert fires" }
+      ]
+    },
+    {
+      "id": "alert-delay",
+      "stem": "Why can a budget alert arrive after the money has already been spent?",
+      "options": [
+        { "id": "a", "text": "Cost data is processed in batches, so it can lag usage by hours" },
+        { "id": "b", "text": "Alerts are only sent at the end of the month" },
+        { "id": "c", "text": "Alerts wait until the budget is fully used" },
+        { "id": "d", "text": "Alerts are only sent on weekdays" }
+      ]
+    },
+    {
+      "id": "vm-size-policy",
+      "stem": "The small-VM-sizes policy is in place. Which of these does it stop?",
+      "options": [
+        { "id": "a", "text": "Creating a new VM with a size that isn't on the allowed list" },
+        { "id": "b", "text": "An existing VM that's already running" },
+        { "id": "c", "text": "Every kind of compute, including containers and functions" },
+        { "id": "d", "text": "Starting a stopped VM of an allowed size" }
+      ]
+    },
+    {
+      "id": "owner-and-guardrails",
+      "stem": "Someone with Owner on the subscription wants a large VM for a test. What stops them removing the policy assignment first?",
+      "options": [
+        { "id": "a", "text": "Nothing technical: an Owner can remove assignments. The guardrails protect against mistakes, not against the subscription's own Owner" },
+        { "id": "b", "text": "Azure Policy can never be removed once assigned" },
+        { "id": "c", "text": "The budget blocks policy changes" },
+        { "id": "d", "text": "The playground tag makes the policies read-only" }
+      ]
+    },
+    {
+      "id": "dedicated-subscription",
+      "stem": "Why must the playground be a dedicated subscription rather than a corner of a shared one?",
+      "options": [
+        { "id": "a", "text": "Labs deploy deliberately weak resources, so a separate subscription limits the blast radius and keeps the bill clear" },
+        { "id": "b", "text": "Dedicated subscriptions get cheaper compute" },
+        { "id": "c", "text": "Azure doesn't allow policies on shared subscriptions" },
+        { "id": "d", "text": "Deployments run faster in a dedicated subscription" }
+      ]
+    }
+  ]
+}

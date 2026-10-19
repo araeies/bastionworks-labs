@@ -29,6 +29,7 @@ CI lints every lab on every PR. Beyond the schema, the lint rules enforce the fo
 | `id` equals the folder name; checkpoint IDs are unique | Stable `labId@version` references |
 | `kit.scope: "none"` (nothing to deploy): no template, parameters, seed script, cleanup, names or outOfGroup; `learnerCostEstimateUsd` is 0; no `externalProbe` or `artefactScan` checkpoints. Any other scope needs `template`, `cleanup`, `names` and `outOfGroup` | Labs that bring their own data (such as a detection lab) cost nothing and can't claim to check resources that don't exist |
 | `repoFile` (the file a repo submission is read from) only on `repoAtCommit` checkpoints for `hiddenDataset` or `rubricReview`; a plain path with no `.`, `..` or empty segments; a `hiddenDataset` rule must end in `.kql`. `rubricReview` defaults to `incident-note.md` | The Verifier reads exactly one named file from the learner's repo, as data |
+| `knowledgeCheck` needs `questions` (the private answer-key reference) **and** `questionsFile` (public questions: an id, a stem and 3–6 one-letter options each, `pick` 3–10, optional `passPercent`). No key named like `answer`, `correct`, `solution`, `explanation` or `key` may appear anywhere in it. `questionsFile` only applies to `knowledgeCheck` | Questions are public; answers never are (platform ADR-0028). Each learner's seed picks their own set |
 
 ## Seeds
 Each learner gets an 8-character seed per lab (Crockford base32, shown as `K7Q2-MX4P`). `kit.names` declares the seed-derived resource names:

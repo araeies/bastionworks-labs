@@ -42,7 +42,8 @@
       "title": "Explain the guardrails' limits",
       "method": "knowledgeCheck",
       "submit": "answers",
-      "questions": "private:lab-0/questions.json"
+      "questions": "private:lab-0/why-it-matters",
+      "questionsFile": "questions/why-it-matters.json"
     }
   ],
   "debrief": "private:debriefs/lab-0.md"
