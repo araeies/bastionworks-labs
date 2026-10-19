@@ -49,6 +49,8 @@ def build_parser() -> argparse.ArgumentParser:
     check = sub.add_parser("check", help="run local practice self-checks (not a verification)")
     check.add_argument("lab")
     check.add_argument("--kit-dir", type=Path)
+    token = sub.add_parser("token", help="explain the format of a self-reported token (prints no token)")
+    token.add_argument("lab", nargs="?")
     cleanup = sub.add_parser("cleanup", help="remove everything a lab created and confirm nothing remains")
     cleanup.add_argument("lab", help="lab id, e.g. storage-sas-leak")
     cleanup.add_argument("--yes", action="store_true", help="skip the confirmation prompt (for automation)")
@@ -67,24 +69,11 @@ def main(argv: Optional[List[str]] = None, *, az: Optional[Az] = None, out: Opti
         parser.print_help(sys.stderr)
         return 2
 
-    az = az or Az(out=out, dry_run=args.dry_run)
-    try:
-        if args.command == "doctor":
-            report = run_doctor(az, args.region)
-            print_report(report, out)
-            return 0 if report.ok else 1
-        if args.command == "status":
-            return run_status(az, out)
-        if args.command == "cleanup":
-            return run_cleanup(az, args.lab, out, confirm, assume_yes=args.yes)
-    except AzNotFound as error:
-        print(str(error), file=sys.stderr)
-        return 127
-    except AzError as error:
-        print(f"\nAzure CLI error: {error}", file=sys.stderr)
-        return 1
-    parser.error(f"unknown command {args.command}")
-    return 2
+    if args.command == "token":  # offline: prints the token's FORMAT only, never the learner's token (ADR-0028)
+        print("Self-reported tokens look like: bwt- followed by 24 lower-case letters and digits", file=out)
+        print("(for example bwt-abc123…). You'll find yours by completing the step the scenario describes.", file=out)
+        print("Submitting it records that you reached that step, on your word: it's never counted as verified.", file=out)
+        return 0
 
     az = az or Az(out=out, dry_run=args.dry_run)
     try:
@@ -95,14 +84,13 @@ def main(argv: Optional[List[str]] = None, *, az: Optional[Az] = None, out: Opti
         if args.command == "status":
             return run_status(az, out)
         if args.command == "deploy":
-            workdir = kits_home() / f"{args.lab}@{args.version or local}"
+            workdir = kits_home() / f"{args.lab}@{args.version or 'local'}"
             workdir.mkdir(parents=True, exist_ok=True)
             with tempfile.TemporaryDirectory(dir=str(workdir)) as tmp:
                 kit_dir = resolve_kit_dir(args.kit_dir, args.lab, args.version, args.sha256, Path(tmp), out)
                 if args.kit_dir is None:
                     final = workdir / args.lab
                     if final.exists():
-
                         shutil.rmtree(final)
                     kit_dir.rename(final)
                     kit_dir = final

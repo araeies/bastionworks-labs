@@ -124,6 +124,7 @@
         "rubric": { "$ref": "#/$defs/relativePath", "description": "Published rubric (brief 4.3); calibration sets stay in verifier-private." },
         "dataset": { "type": "string", "pattern": "^private:[a-z0-9/_.-]+$" },
         "questions": { "type": "string", "pattern": "^private:[a-z0-9/_.-]+$" },
+        "questionsFile": { "$ref": "#/$defs/relativePath", "description": "knowledgeCheck: the PUBLIC questions (no answers) shown to learners; the answer key is the private `questions` reference (platform ADR-0028)." },
         "repoFile": { "$ref": "#/$defs/relativePath", "description": "For repoAtCommit submissions: the file in the learner's repo this checkpoint reads (for example detections/password-spray.kql). rubricReview defaults to incident-note.md." },
         "positiveControl": {
           "type": "string",

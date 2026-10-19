@@ -10,3 +10,9 @@ regexes = [
   '''6c112d4e-5bc7-47ae-a041-ea2d9dccd749''', # Not allowed resource types
   '''cccc23c7-8427-4f53-ad12-b6a63eb452b3''', # Allowed virtual machine size SKUs
 ]
+
+[[allowlists]]
+description = "ADR-0028 test vector: the self-reported token labspec derives for a made-up seed (K7Q2MX4P) in the public test suite. Derived from public code and a public test seed; it grants nothing anywhere. Scoped to this exact value in this one file."
+condition = "AND"
+paths = ['''^tests/test_knowledge\.py$''']
+regexes = ['''^bwt-2indp2iya2t2briotpon4uxz$''']

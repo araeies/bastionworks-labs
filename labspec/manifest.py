@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from labspec.knowledge import QuestionsError, load_questions
 from labspec.validator import validate
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "manifest.schema.json"
@@ -36,7 +37,7 @@ _REQUIRED_FIELDS = {
     "externalProbe": ("hostSuffixes", "hostName", "expect", "positiveControl"),
     "artefactScan": ("rules", "positiveControl"),
     "rubricReview": ("rubric",),
-    "knowledgeCheck": ("questions",),
+    "knowledgeCheck": ("questions", "questionsFile"),
     "selfIssuedToken": (),
 }
 # File names that suggest answers or private material in the public repo.
@@ -136,6 +137,7 @@ def _semantic_errors(lab_dir: Path, data: Dict[str, Any]) -> List[str]:
         if key in kit:
             referenced.append(kit[key])
     referenced += [cp["rubric"] for cp in data["checkpoints"] if "rubric" in cp]
+    referenced += [cp["questionsFile"] for cp in data["checkpoints"] if "questionsFile" in cp]
     for relative in referenced:
         problem = _contained_file(lab_dir, relative)
         if problem:
@@ -168,6 +170,14 @@ def _semantic_errors(lab_dir: Path, data: Dict[str, Any]) -> List[str]:
             errors.append(f"{where}: issuedSasUrl requires maxValidityMinutes <= 60 (exception E6)")
         if submit not in SAS_SUBMISSIONS and ("redactAfterUse" in cp or "maxValidityMinutes" in cp):
             errors.append(f"{where}: redactAfterUse/maxValidityMinutes only apply to SAS submissions")
+        # knowledgeCheck: public questions only (ADR-0028); the answer key is private.
+        if "questionsFile" in cp and method != "knowledgeCheck":
+            errors.append(f"{where}: questionsFile only applies to knowledgeCheck")
+        if method == "knowledgeCheck" and "questionsFile" in cp and not _contained_file(lab_dir, cp["questionsFile"]):
+            try:
+                load_questions(lab_dir / cp["questionsFile"])
+            except QuestionsError as problem:
+                errors.append(f"{where}: {cp['questionsFile']}: {problem}")
         # repoFile: which file in the learner's repo the check reads (repo submissions only).
         if "repoFile" in cp and any(part in ("", ".", "..") for part in str(cp["repoFile"]).split("/")):
             errors.append(f"{where}: repoFile must be a plain path inside the repo (no '.', '..' or empty segments)")
