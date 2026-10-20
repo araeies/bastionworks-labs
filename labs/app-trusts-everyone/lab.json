@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "id": "app-trusts-everyone",
+  "version": "0.1.0",
+  "title": "The app that trusts everyone",
+  "track": "cloud-app-security",
+  "level": "intermediate",
+  "estimatedMinutes": 90,
+  "learnerCostEstimateUsd": 0,
+  "mitre": [
+    { "id": "T1190", "name": "Exploit Public-Facing Application" },
+    { "id": "T1552", "name": "Unsecured Credentials" }
+  ],
+  "mcsb": ["DP-3", "IM-1", "NS-8"],
+  "scenario": "scenario.md",
+  "kit": {
+    "scope": "resourceGroup",
+    "template": "infra/main.bicep",
+    "seed": "seed/plant.py",
+    "selfChecks": "checks/local.py",
+    "cleanup": "cleanup.sh",
+    "names": {
+      "plan": { "prefix": "bw-plan-", "length": 8 },
+      "portal": { "prefix": "bw-portal-", "length": 10 },
+      "api": { "prefix": "bw-api-", "length": 10 }
+    },
+    "outOfGroup": []
+  },
+  "hints": ["hints/1.md", "hints/2.md", "hints/3.md", "hints/4.md"],
+  "checkpoints": [
+    {
+      "id": "found-leak",
+      "title": "You found what the debug page leaks",
+      "method": "selfIssuedToken",
+      "submit": "token"
+    },
+    {
+      "id": "portal-closed",
+      "title": "The portal is locked down, checked from outside",
+      "method": "externalProbe",
+      "submit": "url",
+      "hostSuffixes": [".azurewebsites.net"],
+      "hostName": "portal",
+      "probePath": "/",
+      "expect": {
+        "status": [200],
+        "headers": {
+          "Strict-Transport-Security": "max-age=[1-9][0-9]*",
+          "X-Content-Type-Options": "^nosniff$",
+          "Content-Security-Policy": "frame-ancestors"
+        },
+        "corsDenies": "https://evil.example",
+        "also": [
+          { "scheme": "http", "path": "/", "status": [301, 308], "locationPrefix": "https://{host}/" },
+          { "scheme": "https", "path": "/debug/config", "status": [404] }
+        ]
+      },
+      "positiveControl": "The portal's home page must still answer 200 over HTTPS, so deleting or stopping the app can't pass."
+    },
+    {
+      "id": "api-locked",
+      "title": "The orders API refuses anonymous callers",
+      "method": "externalProbe",
+      "submit": "url",
+      "hostSuffixes": [".azurewebsites.net"],
+      "hostName": "api",
+      "probePath": "/api/orders/1",
+      "expect": {
+        "status": [401],
+        "bodyExcludesDerived": "orderMarker",
+        "corsDenies": "https://evil.example",
+        "also": [
+          { "scheme": "https", "path": "/.auth/login/aad", "status": [302], "locationPrefix": "https://login.microsoftonline.com/" }
+        ]
+      },
+      "positiveControl": "The API's built-in Microsoft Entra sign-in must answer with a redirect to Entra, so a stopped or deleted app can't pass."
+    },
+    {
+      "id": "stays-fixed",
+      "title": "Your IaC keeps both apps fixed",
+      "method": "artefactScan",
+      "submit": "repoAtCommit",
+      "rules": [
+        "custom:lab2-https-only",
+        "custom:lab2-no-ftp",
+        "custom:lab2-no-basic-auth",
+        "custom:lab2-min-tls",
+        "custom:lab2-no-wildcard-cors",
+        "custom:lab2-api-requires-auth",
+        "custom:lab2-seeded-apps"
+      ],
+      "positiveControl": "Both apps in your IaC must use your seed-derived names, so a template copied from someone else fails."
+    },
+    {
+      "id": "know-why",
+      "title": "Explain what each fix does, and what it doesn't",
+      "method": "knowledgeCheck",
+      "submit": "answers",
+      "questions": "private:app-trusts-everyone/know-why",
+      "questionsFile": "questions/know-why.json"
+    },
+    {
+      "id": "review",
+      "title": "Write the security review for the change board",
+      "method": "rubricReview",
+      "submit": "repoAtCommit",
+      "rubric": "rubrics/security-review.md",
+      "repoFile": "security-review.md"
+    }
+  ],
+  "debrief": "private:debriefs/app-trusts-everyone.md"
+}

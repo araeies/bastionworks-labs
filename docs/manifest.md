@@ -23,6 +23,7 @@ CI lints every lab on every PR. Beyond the schema, the lint rules enforce the fo
 | At least one Verified checkpoint (`hiddenDataset`, `externalProbe`, `artefactScan`) | Brief §4.3 |
 | Verified checkpoints need `positiveControl` | Defeats "fix by deletion" (`docs/verification-methods.md` in the platform repo) |
 | `externalProbe` needs Azure `hostSuffixes`, a `hostName` from `kit.names`, and `expect.status` | The prober only contacts seed-matched Azure hostnames (brief §5) |
+| The HTTP probe profile (`probePath`, and `expect.headers`, `corsDenies`, `bodyExcludesDerived`, `also`) only on `submit: "url"` probes. At most 8 headers, each a plain name with a regex that compiles. `also` holds up to 4 extra requests to the same host; plain `http` only for the redirect check (path `/`, status 301 or 308, `locationPrefix: "https://{host}/"`); `{host}` is the only placeholder | The Verifier stays on the learner's own seed-named host, and cleartext is used for one thing only: proving HTTP redirects to HTTPS |
 | SAS submissions need `redactAfterUse: true`; `issuedSasUrl` needs `maxValidityMinutes <= 60` | Exception E6 (ADR-0021) |
 | Every referenced file exists inside the lab folder, with no `..` and no symlinks | Kits run with Owner rights; no path tricks |
 | `debrief`, datasets and questions are `private:` references and must **not** exist in the folder; files named like `*solution*`, `*answer*`, `*debrief*` or `*hidden*` are rejected | Answers never ship in the public repo (brief §11) |

@@ -1,0 +1,11 @@
+{
+  "name": "contoso-portal-lab",
+  "private": true,
+  "description": "Bastionworks lab 2: a deliberately vulnerable portal and orders API. No dependencies.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
