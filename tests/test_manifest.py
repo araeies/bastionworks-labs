@@ -173,3 +173,61 @@ class KitlessAndRepoFileTest(ManifestLintTest):
         for bad in ("detections/../../etc/x.kql", "detections/./x.kql", "detections//x.kql"):
             self.edit(lambda d, bad=bad: (_kitless(d), d["checkpoints"][0].update({"repoFile": bad})))
             self.assert_lint_error("plain path inside the repo")
+
+
+def _url_probe(d, **expect):
+    """Turn the fixture's first checkpoint into a plain-URL probe with the given expectations."""
+    cp = d["checkpoints"][0]
+    cp.pop("redactAfterUse", None)
+    cp.update(submit="url", expect={"status": [200], **expect})
+
+
+class ProbeProfileLintTest(unittest.TestCase):
+    """The HTTP probe profile (lab 2): headers, CORS, extra requests, probePath."""
+
+    setUp, tearDown = ManifestLintTest.setUp, ManifestLintTest.tearDown
+    edit, assert_lint_error = ManifestLintTest.edit, ManifestLintTest.assert_lint_error
+
+    REDIRECT = {"scheme": "http", "path": "/", "status": [301, 308], "locationPrefix": "https://{host}/"}
+
+    def test_full_profile_loads(self):
+        self.edit(lambda d: (_url_probe(d, headers={"X-Content-Type-Options": "^nosniff$"}, corsDenies="https://evil.example",
+                                        bodyExcludesDerived="orderMarker",
+                                        also=[self.REDIRECT, {"scheme": "https", "path": "/debug/config", "status": [404]}]),
+                             d["checkpoints"][0].update(probePath="/api/orders/1")))
+        load_manifest(self.lab)
+
+    def test_azurewebsites_suffix_without_a_middle_label(self):
+        self.edit(lambda d: (_url_probe(d), d["checkpoints"][0].update(hostSuffixes=[".azurewebsites.net"])))
+        load_manifest(self.lab)
+        for bad in (".azurewebsites.net.evil.example", ".evilazurewebsites.net", "azurewebsites.net"):
+            self.edit(lambda d, bad=bad: d["checkpoints"][0].update(hostSuffixes=[bad]))
+            self.assert_lint_error("hostSuffixes[0]: does not match pattern")
+
+    def test_plain_http_only_for_the_redirect_check(self):
+        for bad in ({**self.REDIRECT, "path": "/debug/config"}, {**self.REDIRECT, "status": [200]},
+                    {**self.REDIRECT, "status": [302]}, {**self.REDIRECT, "locationPrefix": "https://evil.example/"},
+                    {"scheme": "http", "path": "/", "status": [301]}):
+            self.edit(lambda d, bad=bad: _url_probe(d, also=[bad]))
+            self.assert_lint_error("plain http is only for the redirect check")
+
+    def test_location_prefix_only_knows_host(self):
+        self.edit(lambda d: _url_probe(d, also=[{"scheme": "https", "path": "/", "status": [302],
+                                                  "locationPrefix": "https://{tenant}.example/"}]))
+        self.assert_lint_error("may only use the {host} placeholder")
+
+    def test_header_names_and_patterns_are_checked(self):
+        self.edit(lambda d: _url_probe(d, headers={"Bad Header": "x"}))
+        self.assert_lint_error("not a plain HTTP header name")
+        self.edit(lambda d: _url_probe(d, headers={"X-Thing": "(unclosed"}))
+        self.assert_lint_error("pattern doesn't compile")
+        self.edit(lambda d: _url_probe(d, headers={f"X-H{i}": "." for i in range(9)}))
+        self.assert_lint_error("at most 8 expected headers")
+
+    def test_profile_fields_only_on_url_probes(self):
+        self.edit(lambda d: d["checkpoints"][0]["expect"].update(corsDenies="https://evil.example"))  # leakedSasUrl
+        self.assert_lint_error("only apply to submit 'url' probes")
+
+    def test_probe_path_only_on_external_probes(self):
+        self.edit(lambda d: d["checkpoints"][1].update(probePath="/"))
+        self.assert_lint_error("probePath only applies to externalProbe")

@@ -17,7 +17,7 @@
     "track": {
       "enum": [
         "playground", "rbac-attack-paths", "data-protection", "network-security", "entra-id",
-        "detection-engineering", "incident-response", "guardrails-as-code", "devsecops", "capstone"
+        "detection-engineering", "incident-response", "guardrails-as-code", "cloud-app-security", "devsecops", "capstone"
       ]
     },
     "level": { "enum": ["beginner", "intermediate"] },
@@ -106,16 +106,44 @@
         "hostSuffixes": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "pattern": "^\\.[a-z0-9.-]+\\.(windows\\.net|azure\\.com|azurewebsites\\.net|azurecontainerapps\\.io)$" }
+          "items": { "type": "string", "pattern": "^\\.([a-z0-9-]+\\.)*(windows\\.net|azure\\.com|azurewebsites\\.net|azurecontainerapps\\.io)$" }
         },
         "hostName": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9]*$", "description": "Key into kit.names: the probed host's first label must equal this derived name." },
+        "probePath": {
+          "type": "string",
+          "pattern": "^/[A-Za-z0-9._~/-]{0,100}$",
+          "description": "externalProbe: the path probed on the submitted host. The submitted URL then only names the host (still the learner's seed-derived name)."
+        },
         "expect": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
             "status": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 100, "maximum": 599 } },
             "errorCode": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z]+$" } },
-            "bodyContainsDerived": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9]*$" }
+            "bodyContainsDerived": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9]*$" },
+            "bodyExcludesDerived": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9]*$", "description": "The body must NOT contain this seed-derived token: planted data that must no longer be served." },
+            "headers": {
+              "type": "object",
+              "description": "Response headers that must be present, each matching a regular expression. Names are case-insensitive.",
+              "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 200 }
+            },
+            "corsDenies": { "type": "string", "pattern": "^https://[a-z0-9.-]+$", "description": "Sent as Origin: the response must not allow it (no matching Access-Control-Allow-Origin, and no '*')." },
+            "also": {
+              "type": "array",
+              "maxItems": 4,
+              "description": "More requests to the same host. Plain http only for the HTTP-to-HTTPS redirect check on '/' (labspec lint).",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["scheme", "path", "status"],
+                "properties": {
+                  "scheme": { "enum": ["http", "https"] },
+                  "path": { "type": "string", "pattern": "^/[A-Za-z0-9._~/-]{0,100}$" },
+                  "status": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 100, "maximum": 599 } },
+                  "locationPrefix": { "type": "string", "pattern": "^https://[A-Za-z0-9.{}/_-]+$", "description": "The Location header must start with this; {host} is the probed host." }
+                }
+              }
+            }
           }
         },
         "redactAfterUse": { "type": "boolean" },

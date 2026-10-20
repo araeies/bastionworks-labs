@@ -1,6 +1,7 @@
 """Load, validate and lint a lab package (lab.json + the files it references)."""
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -107,6 +108,40 @@ def _contained_file(lab_dir: Path, relative: str) -> Optional[str]:
     return None
 
 
+_PROFILE_FIELDS = ("headers", "corsDenies", "also", "bodyExcludesDerived")
+_REDIRECT_STATUS = {301, 308}  # permanent and method-preserving; 302 would let a client keep using http
+
+
+def _probe_profile_errors(where: str, cp: Dict[str, Any]) -> List[str]:
+    """The HTTP probe profile (lab 2): headers, CORS, extra requests. Plain http is allowed for exactly one thing,
+    the HTTP-to-HTTPS redirect check on '/', so a lab can't point the Verifier at arbitrary cleartext endpoints."""
+    errors: List[str] = []
+    expect = cp.get("expect", {})
+    used = [f for f in _PROFILE_FIELDS if f in expect] + (["probePath"] if "probePath" in cp else [])
+    if used and cp["submit"] != "url":
+        errors.append(f"{where}: {', '.join(used)} only apply to submit 'url' probes")
+    headers = expect.get("headers", {})
+    if len(headers) > 8:
+        errors.append(f"{where}: at most 8 expected headers")
+    for name, pattern in headers.items():
+        if not re.match(r"^[A-Za-z0-9-]{1,64}$", name):
+            errors.append(f"{where}: header name '{name}' is not a plain HTTP header name")
+        try:
+            re.compile(pattern)
+        except re.error as problem:
+            errors.append(f"{where}: header '{name}' pattern doesn't compile: {problem}")
+    for index, extra in enumerate(expect.get("also", [])):
+        at = f"{where}: also[{index}]"
+        prefix = extra.get("locationPrefix")
+        if prefix is not None and prefix.replace("{host}", "").count("{") + prefix.replace("{host}", "").count("}"):
+            errors.append(f"{at}: locationPrefix may only use the {{host}} placeholder")
+        if extra["scheme"] == "http":
+            if extra["path"] != "/" or not set(extra["status"]) <= _REDIRECT_STATUS or prefix != "https://{host}/":
+                errors.append(f"{at}: plain http is only for the redirect check: path '/', status 301/308, "
+                              "locationPrefix 'https://{host}/'")
+    return errors
+
+
 def _semantic_errors(lab_dir: Path, data: Dict[str, Any]) -> List[str]:
     errors: List[str] = []
     kit = data["kit"]
@@ -164,6 +199,9 @@ def _semantic_errors(lab_dir: Path, data: Dict[str, Any]) -> List[str]:
                 errors.append(f"{where}: externalProbe requires expect.status")
             if cp.get("hostName") and cp["hostName"] not in kit.get("names", {}):
                 errors.append(f"{where}: hostName '{cp['hostName']}' is not defined in kit.names")
+            errors += _probe_profile_errors(where, cp)
+        elif "probePath" in cp:
+            errors.append(f"{where}: probePath only applies to externalProbe")
         if submit in SAS_SUBMISSIONS and cp.get("redactAfterUse") is not True:
             errors.append(f"{where}: SAS submissions must set redactAfterUse: true (exception E6)")
         if submit == "issuedSasUrl" and cp.get("maxValidityMinutes", 61) > 60:

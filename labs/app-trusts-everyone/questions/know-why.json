@@ -1,0 +1,86 @@
+{
+  "pick": 5,
+  "passPercent": 80,
+  "questions": [
+    {
+      "id": "authn-not-authz",
+      "stem": "You turn on App Service built-in authentication for the orders API with \"Require authentication\". What does that guarantee about a request for /api/orders/7?",
+      "options": [
+        { "id": "a", "text": "Only the customer who owns order 7 can read it" },
+        { "id": "b", "text": "Only callers with an admin role can read it" },
+        { "id": "c", "text": "Only signed-in callers reach your code; which orders each one may read is still up to your code" },
+        { "id": "d", "text": "Nothing, until a web application firewall is added" }
+      ]
+    },
+    {
+      "id": "cors-not-access-control",
+      "stem": "Why doesn't tightening CORS, on its own, protect the orders API?",
+      "options": [
+        { "id": "a", "text": "CORS only tells browsers which other websites may read responses; a script or curl ignores it" },
+        { "id": "b", "text": "CORS only applies to plain HTTP, not HTTPS" },
+        { "id": "c", "text": "App Service ignores CORS settings on Linux" },
+        { "id": "d", "text": "CORS is only checked on POST requests" }
+      ]
+    },
+    {
+      "id": "api-401",
+      "stem": "For the orders API, why is \"HTTP 401 Unauthorized\" a better response to unauthenticated requests than a redirect to the sign-in page?",
+      "options": [
+        { "id": "a", "text": "A 401 is cached, so it's faster" },
+        { "id": "b", "text": "A redirect sends the order data along with it" },
+        { "id": "c", "text": "HTTPS requires a 401" },
+        { "id": "d", "text": "API clients aren't browsers: a redirect to a login page breaks them, while a 401 tells them to get a token" }
+      ]
+    },
+    {
+      "id": "debug-leak",
+      "stem": "The portal's debug page showed no passwords. Why is it still a finding?",
+      "options": [
+        { "id": "a", "text": "It isn't a finding if no passwords are shown" },
+        { "id": "b", "text": "It reveals internals (build, feature flags, internal endpoints, tokens) that help an attacker, and \"temporary\" pages get forgotten" },
+        { "id": "c", "text": "It uses CPU minutes on the Free plan" },
+        { "id": "d", "text": "Debug pages bypass HTTPS" }
+      ]
+    },
+    {
+      "id": "basic-auth-publishing",
+      "stem": "The apps' publishing passwords are long and random. Why turn basic-auth publishing off anyway?",
+      "options": [
+        { "id": "a", "text": "They're long-lived shared credentials, not tied to a person, with no MFA or Conditional Access; Entra tokens are short-lived and tied to an identity" },
+        { "id": "b", "text": "Basic auth makes deployments slower" },
+        { "id": "c", "text": "Leaving it on disables HTTPS" },
+        { "id": "d", "text": "There's no reason if the passwords are strong" }
+      ]
+    },
+    {
+      "id": "hsts",
+      "stem": "httpsOnly already redirects HTTP to HTTPS. What does the Strict-Transport-Security header add?",
+      "options": [
+        { "id": "a", "text": "It encrypts the redirect itself" },
+        { "id": "b", "text": "It replaces the TLS certificate" },
+        { "id": "c", "text": "After the first visit, the browser refuses plain HTTP to the site, so a later http:// request can't be intercepted before the redirect" },
+        { "id": "d", "text": "Nothing; it only matters for APIs" }
+      ]
+    },
+    {
+      "id": "sequential-ids",
+      "stem": "Would changing order numbers from 1, 2, 3 to random GUIDs fix the orders flaw?",
+      "options": [
+        { "id": "a", "text": "Yes: nobody can guess a GUID" },
+        { "id": "b", "text": "No: guessing gets harder, but any leaked or shared ID still works; the fix is checking the order belongs to the caller" },
+        { "id": "c", "text": "Yes, as long as the API also requires HTTPS" },
+        { "id": "d", "text": "Only if CORS is also restricted" }
+      ]
+    },
+    {
+      "id": "principal-header",
+      "stem": "Your code reads the X-MS-CLIENT-PRINCIPAL-ID header to know who is calling. When can you trust it?",
+      "options": [
+        { "id": "a", "text": "Always: browsers can't set custom headers" },
+        { "id": "b", "text": "Only over HTTP/2" },
+        { "id": "c", "text": "Only when CORS is restricted to your own origin" },
+        { "id": "d", "text": "Only when App Service built-in authentication is in front of the app; without it, anyone can send that header" }
+      ]
+    }
+  ]
+}
