@@ -30,6 +30,7 @@ var nodeStack = 'NODE|22-lts'
 var apiHost = '${names.api}.azurewebsites.net'
 
 resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
+  // checkov:skip=CKV_AZURE_225:Free (F1) plan, so the lab costs nothing; zone redundancy needs Premium.
   name: names.plan
   location: location
   tags: tags
@@ -43,22 +44,18 @@ resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
   }
 }
 
-// Shared by both apps. Each setting marked VULNERABLE is part of the scenario.
-var vulnerableSiteConfig = {
-  linuxFxVersion: nodeStack
-  appCommandLine: 'node server.js'
-  alwaysOn: false // not available on Free
-  http20Enabled: true
-  minTlsVersion: '1.2' // App Service retires TLS 1.0 and 1.1 on 31 May 2027; the lab doesn't plant old TLS
-  scmMinTlsVersion: '1.2'
-  remoteDebuggingEnabled: false
-  ftpsState: 'AllAllowed' // VULNERABLE (scenario): plain FTP allowed
-  cors: {
-    allowedOrigins: ['*'] // VULNERABLE (scenario): any website may read responses
-  }
-}
-
+// Both apps carry the same deliberately weak settings, written out in full so they're easy to compare with your fix.
 resource portal 'Microsoft.Web/sites@2024-04-01' = {
+  // checkov:skip=CKV_AZURE_222:Lab endpoints are probed from the internet (owner decision 3, option b); synthetic data only.
+  // checkov:skip=CKV_AZURE_16:The app calls no Azure resources, so a managed identity would have nothing to do.
+  // checkov:skip=CKV_AZURE_71:The app calls no Azure resources, so a managed identity would have nothing to do.
+  // checkov:skip=CKV_AZURE_17:Client certificates are out of scope; the API's fix is Entra sign-in.
+  // checkov:skip=CKV_AZURE_212:Free (F1) plan: one instance, so the lab costs nothing.
+  // checkov:skip=CKV_AZURE_213:Free (F1) plan: health checks need a paid tier.
+  // checkov:skip=CKV_AZURE_14:Deliberately vulnerable lab resource: plain HTTP is the scenario.
+  // checkov:skip=CKV_AZURE_70:Deliberately vulnerable lab resource: plain HTTP is the scenario.
+  // checkov:skip=CKV_AZURE_153:Deliberately vulnerable lab resource: plain HTTP is the scenario.
+  // checkov:skip=CKV_AZURE_78:Deliberately vulnerable lab resource: FTP is the scenario.
   name: names.portal
   location: location
   tags: tags
@@ -67,7 +64,18 @@ resource portal 'Microsoft.Web/sites@2024-04-01' = {
     serverFarmId: plan.id
     httpsOnly: false // VULNERABLE (scenario): answers over plain HTTP
     clientAffinityEnabled: false
-    siteConfig: union(vulnerableSiteConfig, {
+    siteConfig: {
+      linuxFxVersion: nodeStack
+      appCommandLine: 'node server.js'
+      alwaysOn: false // not available on Free
+      http20Enabled: true
+      minTlsVersion: '1.2' // App Service retires TLS 1.0 and 1.1 on 31 May 2027; the lab doesn't plant old TLS
+      scmMinTlsVersion: '1.2'
+      remoteDebuggingEnabled: false
+      ftpsState: 'AllAllowed' // VULNERABLE (scenario): plain FTP allowed
+      cors: {
+        allowedOrigins: ['*'] // VULNERABLE (scenario): any website may read responses
+      }
       appSettings: [
         { name: 'BW_ROLE', value: 'portal' }
         { name: 'BW_LAB', value: labId }
@@ -76,11 +84,21 @@ resource portal 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'BW_ORDERS_API_URL', value: 'https://${apiHost}' }
         { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'false' } // built-ins only: nothing to build
       ]
-    })
+    }
   }
 }
 
 resource api 'Microsoft.Web/sites@2024-04-01' = {
+  // checkov:skip=CKV_AZURE_222:Lab endpoints are probed from the internet (owner decision 3, option b); synthetic data only.
+  // checkov:skip=CKV_AZURE_16:The app calls no Azure resources, so a managed identity would have nothing to do.
+  // checkov:skip=CKV_AZURE_71:The app calls no Azure resources, so a managed identity would have nothing to do.
+  // checkov:skip=CKV_AZURE_17:Client certificates are out of scope; the API's fix is Entra sign-in.
+  // checkov:skip=CKV_AZURE_212:Free (F1) plan: one instance, so the lab costs nothing.
+  // checkov:skip=CKV_AZURE_213:Free (F1) plan: health checks need a paid tier.
+  // checkov:skip=CKV_AZURE_14:Deliberately vulnerable lab resource: plain HTTP is the scenario.
+  // checkov:skip=CKV_AZURE_70:Deliberately vulnerable lab resource: plain HTTP is the scenario.
+  // checkov:skip=CKV_AZURE_153:Deliberately vulnerable lab resource: plain HTTP is the scenario.
+  // checkov:skip=CKV_AZURE_78:Deliberately vulnerable lab resource: FTP is the scenario.
   name: names.api
   location: location
   tags: tags
@@ -89,14 +107,25 @@ resource api 'Microsoft.Web/sites@2024-04-01' = {
     serverFarmId: plan.id
     httpsOnly: false // VULNERABLE (scenario)
     clientAffinityEnabled: false
-    siteConfig: union(vulnerableSiteConfig, {
+    siteConfig: {
+      linuxFxVersion: nodeStack
+      appCommandLine: 'node server.js'
+      alwaysOn: false // not available on Free
+      http20Enabled: true
+      minTlsVersion: '1.2' // App Service retires TLS 1.0 and 1.1 on 31 May 2027; the lab doesn't plant old TLS
+      scmMinTlsVersion: '1.2'
+      remoteDebuggingEnabled: false
+      ftpsState: 'AllAllowed' // VULNERABLE (scenario): plain FTP allowed
+      cors: {
+        allowedOrigins: ['*'] // VULNERABLE (scenario): any website may read responses
+      }
       appSettings: [
         { name: 'BW_ROLE', value: 'api' }
         { name: 'BW_LAB', value: labId }
         { name: 'BW_SEED', value: seed }
         { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'false' }
       ]
-    })
+    }
   }
   // VULNERABLE (scenario): no built-in authentication (no authsettingsV2), so anyone can call the API.
 }
