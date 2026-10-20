@@ -35,3 +35,16 @@ suppression:
   Azure.Storage.UseReplication: [bwsasexample01]     # LRS is enough for a 45-minute lab
   Azure.Storage.SoftDelete: [bwsasexample01]         # soft delete would keep planted data after cleanup
   Azure.Storage.ContainerSoftDelete: [bwsasexample01]
+  # app-trusts-everyone (lab 2) deploys DELIBERATELY vulnerable web apps (platform ADR-0030); these two are the
+  # scenario the learner must find and fix:
+  Azure.AppService.UseHTTPS: [bw-portal-example001, bw-api-example0001]      # scenario: plain HTTP allowed
+  Azure.AppService.WebSecureFtp: [bw-portal-example001, bw-api-example0001]  # scenario: FTP allowed
+  # Free (F1) plan, so the lab costs the learner nothing; F1 has no instance scaling, zones, Always On or health checks:
+  Azure.AppService.MinPlan: [bw-plan-example1]
+  Azure.AppService.PlanInstanceCount: [bw-plan-example1]
+  Azure.AppService.AvailabilityZone: [bw-plan-example1]
+  Azure.AppService.AlwaysOn: [bw-portal-example001, bw-api-example0001]
+  Azure.AppService.WebProbe: [bw-portal-example001, bw-api-example0001]
+  Azure.AppService.WebProbePath: [bw-portal-example001, bw-api-example0001]
+  # The apps call no Azure resources, so a managed identity would be an identity with nothing to do:
+  Azure.AppService.ManagedIdentity: [bw-portal-example001, bw-api-example0001]
