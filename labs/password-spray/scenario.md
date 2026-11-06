@@ -15,6 +15,9 @@
    - There's nothing to upload and no ingestion cost: the data travels inside your query.
    - `data/signin-sample.csv` has the same events, if you'd rather use another tool.
 2. **Write the rule.** Find the accounts that were signed in to successfully as part of the spray. The data also contains ordinary noise that looks a bit like an attack, and your rule must not flag it.
+   - **Practise-check it (optional).** In Cloud Shell, with this repo cloned, run `BW_RULE=<your rule file> bw check password-spray --kit-dir bastionworks-labs/labs/password-spray`.
+   - It runs your rule against the practice data in your own Log Analytics workspace, and tells you how many compromised accounts you caught and how many false alarms you raised: counts only, the same as the real check.
+   - Passing on practice data is a good sign, but not a guarantee. The real check uses a different variant.
 3. **Commit it** to a repository in your GitHub account as **`detections/password-spray.kql`**. Commit just the rule, starting from `SigninLogs`, without the practice data.
 4. **Write the runbook entry** for the on-call analyst, in **`detections/password-spray.md`**. See `rubrics/runbook-entry.md` for what a good one covers.
 5. **Submit both** on the lab page, as your repo at a commit.
