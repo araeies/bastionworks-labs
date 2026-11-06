@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "password-spray",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "title": "The 3 a.m. sign-in",
   "track": "detection-engineering",
   "level": "intermediate",
@@ -13,7 +13,7 @@
   ],
   "mcsb": ["LT-1", "LT-3", "IM-6"],
   "scenario": "scenario.md",
-  "kit": { "scope": "none" },
+  "kit": { "scope": "none", "selfChecks": "checks/local.py" },
   "hints": ["hints/1.md", "hints/2.md", "hints/3.md"],
   "checkpoints": [
     {
