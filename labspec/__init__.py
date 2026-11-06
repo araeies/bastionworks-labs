@@ -1,6 +1,6 @@
 """labspec: the shared lab-manifest library for bw and the Bastionworks Verifier.
 
-Standard library only, Python 3.9+ (ADR-0004, ADR-0015). One implementation, so the kit tooling and the
+Standard library only, Python 3.12+ (ADR-0004, ADR-0015). One implementation, so the kit tooling and the
 Verifier can never interpret a lab differently.
 """
 

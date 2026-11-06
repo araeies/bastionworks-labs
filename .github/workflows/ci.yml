@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.9", "3.13"] # 3.9 = Azure Cloud Shell floor (ADR-0015)
+        python: ["3.12", "3.13"] # 3.12 = Azure Cloud Shell (Azure Linux 3.0; platform ADR-0015, revised 2026-11-06)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

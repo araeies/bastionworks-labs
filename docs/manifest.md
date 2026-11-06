@@ -6,7 +6,7 @@ There are two consumers and one parser:
 - **`bw`** reads `kit.*` to deploy, self-check and clean up;
 - **the Verifier** reads `checkpoints.*` to verify submissions.
 
-Both use `labspec` (standard library only, Python 3.9+), so they cannot interpret a lab differently.
+Both use `labspec` (standard library only, Python 3.12+), so they cannot interpret a lab differently.
 
 Manifests are authored as **JSON**. YAML would need a third-party parser, and both consumers are standard-library only.
 
